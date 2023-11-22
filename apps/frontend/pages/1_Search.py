@@ -43,12 +43,14 @@ with st.sidebar:
     st.markdown("""# Instructions""")
     st.markdown(
         """
-Ask a question that you think can be answered with the information in about 10k Arxiv Computer Science publications from 2020-2021 or in 90k Medical Covid-19 Publications.
+Ask a question that you think can be answered with the information in about CSU related topics, like VBD, DE, EDE, etc.
 
 For example:
 // TODO: Add more examples here
 // TODO: Add more examples here
-    \nYou will notice that the answers to these questions are diferent from the open ChatGPT, since these papers are the only possible context. This search engine does not look at the open internet to answer these questions. If the context doesn't contain information, the engine will respond: I don't know.
+    \n You will notice that the answers to these questions are diferent from the open ChatGPT, since these papers are the only possible context. 
+    This search engine does not look at the open internet to answer these questions. 
+    If the context doesn't contain information, the engine will respond: I don't know.
     """
     )
 
@@ -56,7 +58,7 @@ coli1, coli2 = st.columns([3, 1])
 with coli1:
     query = st.text_input(
         "Ask a question to your enterprise data lake",
-        value="What are the main risk factors for Covid-19?",
+        value="What are available VBD for Azure Open AI?",
         on_change=clear_submit,
     )
 with coli2:
@@ -143,7 +145,7 @@ else:
                 placeholder = st.empty()
 
             except Exception as e:
-                st.markdown("Not data returned from Azure Search, check connection..")
+                st.markdown("Not data returned from Azure AI Search, check connection..")
                 st.markdown(e)
 
             if "ordered_results" in locals():
