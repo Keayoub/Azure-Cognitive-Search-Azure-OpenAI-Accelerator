@@ -5,27 +5,29 @@ import streamlit.components.v1 as components
 # From here down is all the StreamLit UI.
 st.set_page_config(page_title="GPT Smart Agent", page_icon="📖", layout="wide")
 # Add custom CSS styles to adjust padding
-st.markdown("""
+st.markdown(
+    """
         <style>
                .block-container {
                     padding-top: 1rem;
                     padding-bottom: 0rem;
                 }
         </style>
-        """, unsafe_allow_html=True)
+        """,
+    unsafe_allow_html=True,
+)
 
 with st.sidebar:
     st.markdown("""# Instructions""")
-    st.markdown("""
+    st.markdown(
+        """
 
 This Chatbot is hosted in an independent Backend Azure Web App and was created using the Bot Framework SDK.
 It has access to the following tools/pluggins:
-
+ //TODO: Add more info here
+- Azure Search for documents knowledge CSU - (***use @docsearch in your question***)
 - Bing Search (***use @bing in your question***)
 - ChatGPT for common knowledge (***use @chatgpt in your question***)
-- Azure SQL for covid statistics data (***use @covidstats in your question***)
-- Azure Search for documents knowledge - Arxiv papers and Covid Articles (***use @docsearch in your question***)
-- Azure Search for books knowledge - 5 PDF books (***use @booksearch in your question***)
 
 Note: If you don't use any of the tool names beginning with @, the bot will try to use it's own knowledge or tool available to answer the question.
 
@@ -34,33 +36,35 @@ Example questions:
 - Hello, my name is Bob, what's yours?
 - @bing, What's the main economic news of today?
 - @chatgpt, How do I cook a chocolate cake?
-- @booksearch, what normally rich dad do that is different from poor dad?
-- @docsearch, What medicine reduces inflammation in the lungs?
-- @docsearch, Why Covid doesn't affect kids that much compared to adults?
+- @booksearch, //TODO: Add more info here
+- @docsearch,  // TODO: Add more info here
+- @docsearch,  // TODO: Add more info here
 - What are markov chains?
-- @covidstats, How many people where hospitalized in Arkansas in June 2020?
-- @docsearch, List the authors that talk about Boosting Algorithms
+- @docsearch,  //TODO: Add more info here
 - @booksearch, Tell me a summary of the book Boundaries
 - @chatgpt, how do I fix this error: aiohttp.web_exceptions.HTTPNotFound: Not Found
-- @bing, what movies are showing tonight in Seattle?
-- @docsearch, What are the main risk factors for Covid-19?
+- @bing, //TODO: Add more info here
 - Please tell me a joke
-    """)
-    
-st.markdown("""
+"""
+    )
+
+st.markdown(
+    """
         <style>
                .block-container {
                     padding-top: 1rem;
                     padding-bottom: 0rem;
                 }
         </style>
-        """, unsafe_allow_html=True)
+        """,
+    unsafe_allow_html=True,
+)
 
 
 BOT_DIRECTLINE_SECRET_KEY = os.environ.get("BOT_DIRECTLINE_SECRET_KEY")
 
 components.html(
-f"""
+    f"""
 <html>
   <head>
     <script
@@ -156,4 +160,6 @@ f"""
     </script>
   </body>
 </html>
-""", height=800)
+""",
+    height=800,
+)
