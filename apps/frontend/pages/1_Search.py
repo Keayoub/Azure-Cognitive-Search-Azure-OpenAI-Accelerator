@@ -111,9 +111,9 @@ else:
 
             try:
                 index1_name = "cogsrch-index-sales-cs"
-                index2_name = "cogsrch-index-csv"
-                text_indexes = [index1_name]
-                vector_indexes = text_indexes
+                index2_name = "adlsgen2-index"
+                text_indexes = [index2_name]
+                vector_indexes = [index1_name]
 
                 # Search in text-based indexes first and update vector indexes
                 top_k = 10
