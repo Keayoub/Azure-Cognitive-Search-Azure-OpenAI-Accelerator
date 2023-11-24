@@ -25,11 +25,12 @@ from common.utils import (
     model_tokens_limit,
     num_tokens_from_docs,
     num_tokens_from_string,
+    get_docs_search_results,
 )
 
 from dotenv import load_dotenv
 
-load_dotenv("credentials.env")
+load_dotenv("./.vscode/credentials.env")
 
 # Set the ENV variables that Langchain needs to connect to Azure OpenAI
 os.environ["OPENAI_API_BASE"] = os.environ["AZURE_OPENAI_ENDPOINT"]
@@ -44,26 +45,28 @@ headers = {
 }
 params = {"api-version": os.environ["AZURE_SEARCH_API_VERSION"]}
 
-index1_name = "cogsrch-index-sales-cs"
+index1_name = "adlsgen2-index"
 index2_name = "*"
 indexes = [index1_name]
-QUESTION = "*;$top=100;"
+QUESTION = "aks"
 
 k = 100  # Number of results per each text_index
-ordered_results = get_search_results(QUESTION, indexes, k=100, reranker_threshold=1)
+ordered_results = get_docs_search_results(
+    QUESTION, indexes, k=100, reranker_threshold=1
+)
 print("Number of results:", len(ordered_results))
 
 embedder = OpenAIEmbeddings(deployment="text-embedding-ada-002", chunk_size=1)
 
 for key, value in ordered_results.items():
     if value["vectorized"] != True:  # If the document has not been vectorized yet
-        print("Vectorizing", len(value["ServiceName"]))
+        print("Vectorizing", len(value["content"]))
         # Update document in text-based index and mark it as "vectorized"
-        value_to_vectorise = f"{value['Description']} {value['InternalComments']}"
+        value_to_vectorise = f"{value['content']}"
         upload_payload = {
             "value": [
                 {
-                    "id": key,
+                    "my-semantic-config": key,
                     "Vector": embedder.embed_query(value_to_vectorise),
                     "vectorized": True,
                     "@search.action": "merge",

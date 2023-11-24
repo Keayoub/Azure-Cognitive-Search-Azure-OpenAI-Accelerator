@@ -155,14 +155,14 @@ else:
                     top_docs = []
                     for key, value in ordered_results.items():
                         location = (
-                            value["location"] if value["location"] is not None else ""
+                            value["metadata_storage_name"]
+                            if value["metadata_storage_name"] is not None
+                            else ""
                         )
                         top_docs.append(
                             Document(
-                                page_content=value["chunk"],
-                                metadata={
-                                    "source": location + os.environ["BLOB_SAS_TOKEN"]
-                                },
+                                # page_content=value["chunk"],
+                                metadata={"source": location},
                             )
                         )
                         add_text = "Reading the source documents to provide the best answer... ⏳"
@@ -199,15 +199,15 @@ else:
                         if len(top_docs) > 0:
                             for key, value in ordered_results.items():
                                 location = (
-                                    value["location"]
-                                    if value["location"] is not None
+                                    value["metadata_storage_name"]
+                                    if value["metadata_storage_name"] is not None
                                     else ""
                                 )
                                 url = location + os.environ.get("BLOB_SAS_TOKEN")
                                 title = (
-                                    str(value["title"])
-                                    if (value["title"])
-                                    else value["name"]
+                                    str(value["metadata_storage_name"])
+                                    if (value["metadata_storage_name"])
+                                    else ""
                                 )
                                 score = str(round(value["score"] * 100 / 4, 2))
                                 st.markdown(

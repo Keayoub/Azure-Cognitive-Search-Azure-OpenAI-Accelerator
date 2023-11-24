@@ -374,7 +374,7 @@ def get_search_results(
         else:
             search_payload[
                 "select"
-            ] = "id, ServiceName, ServiceType, ServiceCategory, ServiceFamily, Price, Description, chunks, InternalComments ,vectorized"
+            ] = "id, ServiceName, ServiceType, ServiceCategory, ServiceFamily, Price, Description, InternalComments, chunks,  ,vectorized"
 
         resp = requests.post(
             os.environ["AZURE_SEARCH_ENDPOINT"] + "/indexes/" + index + "/docs/search",
@@ -470,11 +470,11 @@ def get_docs_search_results(
             ]
             search_payload[
                 "select"
-            ] = "id, content, text, translated_text, merged_content"
+            ] = "metadata_storage_path, content, text, translated_text, merged_content, chunks"
         else:
             search_payload[
                 "select"
-            ] = "id, content, text, translated_text, merged_content, vectorized"
+            ] = "metadata_storage_path, content, text, translated_text, merged_content, chunks, vectorized"
 
         resp = requests.post(
             os.environ["AZURE_SEARCH_ENDPOINT"] + "/indexes/" + index + "/docs/search",
@@ -490,28 +490,35 @@ def get_docs_search_results(
     ordered_content = OrderedDict()
 
     for index, search_results in agg_search_results.items():
-        for result in search_results["value"]:
-            if (
-                result["@search.rerankerScore"] > reranker_threshold
-            ):  # Show results that are at least N% of the max possible score=4
-                content[result["id"]] = {
-                    "content": result["content"],
-                    "text": result["text"],
-                    "translated_text": result["translated_text"],
-                    "merged_content": result["merged_content"],
-                    "caption": result["@search.captions"][0]["text"],
-                    "index": index,
-                }
-                if vector_search:
-                    content[result["id"]]["score"] = result[
-                        "@search.score"
-                    ]  # Uses the Hybrid RRF score
+        if None != search_results["value"]:
+            for result in search_results["value"]:
+                if (
+                    result["@search.rerankerScore"] > reranker_threshold
+                ):  # Show results that are at least N% of the max possible score=4
+                    content[result["metadata_storage_path"]] = {
+                        "content": result["content"],
+                        "text": result["text"],
+                        "translated_text": result["translated_text"],
+                        "merged_content": result["merged_content"],
+                        "caption": result["@search.captions"][0]["text"],
+                        "chunks": result["chunks"],
+                        "index": index,
+                    }
+                    if vector_search:
+                        content[result["metadata_storage_path"]]["score"] = result[
+                            "@search.score"
+                        ]  # Uses the Hybrid RRF score
 
-                else:
-                    content[result["id"]]["score"] = result[
-                        "@search.rerankerScore"
-                    ]  # Uses the reranker score
-                    content[result["id"]]["vectorized"] = result["vectorized"]
+                    else:
+                        content[result["metadata_storage_path"]]["chunks"] = result[
+                            "chunks"
+                        ]
+                        content[result["metadata_storage_path"]]["score"] = result[
+                            "@search.rerankerScore"
+                        ]  # Uses the reranker score
+                        content[result["metadata_storage_path"]]["vectorized"] = result[
+                            "vectorized"
+                        ]
 
     # After results have been filtered, sort and add the top k to the ordered_content
     if vector_search:
@@ -529,7 +536,9 @@ def get_docs_search_results(
     return ordered_content
 
 
-def update_vector_indexes(ordered_search_results: dict, embedder: OpenAIEmbeddings):
+def update_sales_vector_indexes(
+    ordered_search_results: dict, embedder: OpenAIEmbeddings
+):
     """Get as input the results of a text-based multi-index search, vectorize the documents chunks that has not been done before and updates the vector-based indexes"""
 
     headers = {
@@ -538,11 +547,12 @@ def update_vector_indexes(ordered_search_results: dict, embedder: OpenAIEmbeddin
     }
     params = {"api-version": os.environ["AZURE_SEARCH_API_VERSION"]}
 
-
     for key, value in ordered_search_results.items():
         if value["vectorized"] != True:  # If the document has not been vectorized yet
             # Update document in text-based index and mark it as "vectorized"
-            value_to_vectorise = f"{value['Description']} {value['InternalComments']} {value['content']}"
+            value_to_vectorise = (
+                f"{value['Description']} {value['InternalComments']} {value['content']}"
+            )
             upload_payload = {
                 "value": [
                     {
@@ -553,7 +563,7 @@ def update_vector_indexes(ordered_search_results: dict, embedder: OpenAIEmbeddin
                     },
                 ]
             }
-            
+
             r = requests.post(
                 os.environ["AZURE_SEARCH_ENDPOINT"]
                 + "/indexes/"
@@ -563,6 +573,75 @@ def update_vector_indexes(ordered_search_results: dict, embedder: OpenAIEmbeddin
                 headers=headers,
                 params=params,
             )
+
+
+def update_vector_indexes(ordered_search_results: dict, embedder: OpenAIEmbeddings):
+    """Get as input the results of a text-based multi-index search, vectorize the documents chunks that has not been done before and updates the vector-based indexes"""
+
+    headers = {
+        "Content-Type": "application/json",
+        "api-key": os.environ["AZURE_SEARCH_KEY"],
+    }
+    params = {"api-version": os.environ["AZURE_SEARCH_API_VERSION"]}
+
+    for key, value in ordered_search_results.items():
+        if value["vectorized"] != True:  # If the document has not been vectorized yet
+            i = 0
+            for chunk in value["chunks"]:  # Iterate over the text chunks
+                try:
+                    upload_payload = {  # Insert the chunk and its vector/embedding in the vector-based index
+                        "value": [
+                            {
+                                "id": key + "_" + str(i),
+                                "title": f"{value['metadata_title']}_chunk_{str(i)}",
+                                "chunk": chunk,
+                                "chunkVector": embedder.embed_query(
+                                    chunk if chunk != "" else "-------"
+                                ),
+                                "name": value["metadata_storage_name"],
+                                "location": value["metadata_storage_path"],
+                                "@search.action": "upload",
+                            },
+                        ]
+                    }
+
+                    r = requests.post(
+                        os.environ["AZURE_SEARCH_ENDPOINT"]
+                        + "/indexes/"
+                        + value["index"]
+                        + "-vector"
+                        + "/docs/index",
+                        data=json.dumps(upload_payload),
+                        headers=headers,
+                        params=params,
+                    )
+                    if r.status_code != 200:
+                        print(r.status_code)
+                        print(r.text)
+                    else:
+                        i = i + 1  # increment chunk number
+
+                except Exception as e:
+                    print("Exception:", e)
+                    print(chunk)
+                    continue
+
+        # Update document in text-based index and mark it as "vectorized"
+        upload_payload = {
+            "value": [
+                {"id": key, "vectorized": True, "@search.action": "merge"},
+            ]
+        }
+
+        r = requests.post(
+            os.environ["AZURE_SEARCH_ENDPOINT"]
+            + "/indexes/"
+            + value["index"]
+            + "/docs/index",
+            data=json.dumps(upload_payload),
+            headers=headers,
+            params=params,
+        )
 
 
 def get_answer(
@@ -679,13 +758,13 @@ class DocSearchResults(BaseTool):
                 vector_search=False,
             )
 
-            # update_vector_indexes(
-            #     ordered_search_results=ordered_results, embedder=embedder
-            # )
+            update_vector_indexes(
+                ordered_search_results=ordered_results, embedder=embedder
+            )
 
-            # vector_indexes = [index for index in self.indexes]
-            # if self.vector_only_indexes:
-            #     vector_indexes = vector_indexes + self.vector_only_indexesZ
+            vector_indexes = [index for index in self.indexes]
+            if self.vector_only_indexes:
+                vector_indexes = vector_indexes + self.vector_only_indexesZ
 
         if self.vector_only_indexes and not self.indexes:
             vector_indexes = self.vector_only_indexes
@@ -738,13 +817,13 @@ class SalesSearchResults(BaseTool):
                 vector_search=False,
             )
 
-            # update_vector_indexes(
-            #     ordered_search_results=ordered_results, embedder=embedder
-            # )
+            update_sales_vector_indexes(
+                ordered_search_results=ordered_results, embedder=embedder
+            )
 
-            # vector_indexes = [index for index in self.indexes]
-            # if self.vector_only_indexes:
-            #     vector_indexes = vector_indexes + self.vector_only_indexesZ
+            vector_indexes = [index for index in self.indexes]
+            if self.vector_only_indexes:
+                vector_indexes = vector_indexes + self.vector_only_indexesZ
 
         if self.vector_only_indexes and not self.indexes:
             vector_indexes = self.vector_only_indexes
@@ -870,7 +949,7 @@ class SalesSearchTool(BaseTool):
                 tools=tools,
                 llm=self.llm,
                 agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-                agent_kwargs={"prefix": DOCSEARCH_PROMPT_PREFIX},
+                agent_kwargs={"prefix": SALES_PROMPT_PREFIX},
                 callback_manager=self.callbacks,
                 verbose=self.verbose,
                 handle_parsing_errors=True,

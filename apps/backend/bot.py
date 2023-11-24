@@ -114,6 +114,7 @@ class MyBot(ActivityHandler):
         docs_search = DocSearchTool(
             llm=llm,
             indexes=text_indexes,
+            vector_only_indexes=["adlsgen2-index-vector"],
             k=10,
             similarity_k=4,
             reranker_th=1,
