@@ -25,7 +25,7 @@ with st.sidebar:
 This Chatbot is hosted in an independent Backend Azure Web App and was created using the Bot Framework SDK.
 It has access to the following tools/pluggins:
  //TODO: Add more info here
-- Azure Search for documents knowledge CSU - (***use @docsearch in your question***)
+- Azure Search for documents knowledge CSU - (***use @docs and @sales***)
 - Bing Search (***use @bing in your question***)
 - ChatGPT for common knowledge (***use @chatgpt in your question***)
 
@@ -36,13 +36,8 @@ Example questions:
 - Hello, my name is Bob, what's yours?
 - @bing, What's the main economic news of today?
 - @chatgpt, How do I cook a chocolate cake?
-- @booksearch, //TODO: Add more info here
-- @docsearch,  // TODO: Add more info here
-- @docsearch,  // TODO: Add more info here
-- What are markov chains?
-- @docsearch,  //TODO: Add more info here
-- @booksearch, Tell me a summary of the book Boundaries
-- @chatgpt, how do I fix this error: aiohttp.web_exceptions.HTTPNotFound: Not Found
+- @sales, //TODO: Add more info here
+- @docs,  // TODO: Add more info here
 - @bing, //TODO: Add more info here
 - Please tell me a joke
 """
