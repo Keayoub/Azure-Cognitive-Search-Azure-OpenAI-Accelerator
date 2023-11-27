@@ -10,8 +10,9 @@ from langchain.docstore.document import Document
 from langchain.chat_models import AzureChatOpenAI
 from langchain.embeddings import OpenAIEmbeddings
 from utils import (
-    get_search_results,
+    get_sales_search_results,
     update_vector_indexes,
+    update_sales_vector_indexes,
     model_tokens_limit,
     num_tokens_from_docs,
     num_tokens_from_string,
@@ -32,7 +33,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.header("GPT Smart Search Engine")
+st.header("Canada CSU Smart Search")
 
 
 def clear_submit():
@@ -94,9 +95,9 @@ elif (not os.environ.get("BLOB_SAS_TOKEN")) or (os.environ.get("BLOB_SAS_TOKEN")
     st.error("Please set your BLOB_SAS_TOKEN on your Web App Settings")
 
 else:
-    os.environ["OPENAI_API_BASE"] = os.environ.get("AZURE_OPENAI_ENDPOINT")
-    os.environ["OPENAI_API_KEY"] = os.environ.get("AZURE_OPENAI_API_KEY")
-    os.environ["OPENAI_API_VERSION"] = os.environ["AZURE_OPENAI_API_VERSION"]
+    os.environ["OPENAI_API_BASE"] = str(os.environ.get("AZURE_OPENAI_ENDPOINT"))
+    os.environ["OPENAI_API_KEY"] = str(os.environ.get("AZURE_OPENAI_API_KEY"))
+    os.environ["OPENAI_API_VERSION"] = str(os.environ["AZURE_OPENAI_API_VERSION"])
     os.environ["OPENAI_API_TYPE"] = "azure"
 
     MODEL = os.environ.get("AZURE_OPENAI_MODEL_NAME")
@@ -109,59 +110,57 @@ else:
         else:
             # Azure Search
 
-            try:
-                index1_name = "cogsrch-index-sales-cs"
-                index2_name = "adlsgen2-index"
-                text_indexes = [index2_name]
-                vector_indexes = [index1_name]
+            # try:
+            index1_name = "cogsrch-index-sales-cs"
+            index2_name = "cogsrch-index-sales-cs"
+            text_indexes = [index1_name]
+            vector_indexes = [index2_name]
 
-                # Search in text-based indexes first and update vector indexes
-                top_k = 10
-                ordered_results = get_search_results(
-                    query,
-                    text_indexes,
-                    k=top_k,
-                    reranker_threshold=1,
-                    vector_search=False,
-                )
+            # Search in text-based indexes first and update vector indexes
+            top_k = 10
+            ordered_results = get_sales_search_results(
+                query,
+                text_indexes,
+                k=top_k,
+                reranker_threshold=1,
+                vector_search=False,
+            )
 
-                update_vector_indexes(
-                    ordered_search_results=ordered_results, embedder=embedder
-                )
+            update_sales_vector_indexes(
+                ordered_search_results=ordered_results, embedder=embedder
+            )
 
-                # Search in all vector-based indexes available
-                top_similarity_k = 5
-                ordered_results = get_search_results(
-                    query,
-                    vector_indexes,
-                    k=top_k,
-                    vector_search=True,
-                    similarity_k=top_similarity_k,
-                    query_vector=embedder.embed_query(query),
-                )
+            # Search in all vector-based indexes available
+            top_similarity_k = 5
+            ordered_results = get_sales_search_results(
+                query,
+                vector_indexes,
+                k=top_k,
+                vector_search=True,
+                similarity_k=top_similarity_k,
+                query_vector=embedder.embed_query(query),
+            )
 
-                st.session_state["submit"] = True
-                # Output Columns
-                placeholder = st.empty()
+            st.session_state["submit"] = True
+            # Output Columns
+            placeholder = st.empty()
 
-            except Exception as e:
-                st.markdown(
-                    "Not data returned from Azure AI Search, check connection.."
-                )
-                st.markdown(e)
+            # except Exception as e:
+            #     st.markdown(
+            #         "Not data returned from Azure AI Search, check connection.."
+            #     )
+            #     st.markdown(e)
 
             if "ordered_results" in locals():
                 try:
                     top_docs = []
                     for key, value in ordered_results.items():
                         location = (
-                            value["metadata_storage_name"]
-                            if value["metadata_storage_name"] is not None
-                            else ""
+                            value["location"] if value["location"] is not None else ""
                         )
                         top_docs.append(
                             Document(
-                                # page_content=value["chunk"],
+                                page_content=value["Description"],
                                 metadata={"source": location},
                             )
                         )
@@ -199,14 +198,14 @@ else:
                         if len(top_docs) > 0:
                             for key, value in ordered_results.items():
                                 location = (
-                                    value["metadata_storage_name"]
-                                    if value["metadata_storage_name"] is not None
+                                    value["location"]
+                                    if value["location"] is not None
                                     else ""
                                 )
                                 url = location + os.environ.get("BLOB_SAS_TOKEN")
                                 title = (
-                                    str(value["metadata_storage_name"])
-                                    if (value["metadata_storage_name"])
+                                    str(value["location"])
+                                    if (value["location"])
                                     else ""
                                 )
                                 score = str(round(value["score"] * 100 / 4, 2))
