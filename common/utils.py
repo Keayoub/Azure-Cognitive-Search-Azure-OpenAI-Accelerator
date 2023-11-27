@@ -574,6 +574,7 @@ def get_sales_search_results(
                     "chunks": result["chunks"],
                     "location": result["metadata_storage_name"],
                     "index": index,
+                    
                 }
                 if vector_search:
                     content[result["id"]]["score"] = result[
