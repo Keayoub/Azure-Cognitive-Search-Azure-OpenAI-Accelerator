@@ -333,8 +333,168 @@ def num_tokens_from_docs(docs: List[Document]) -> int:
         num_tokens += num_tokens_from_string(docs[i].page_content)
     return num_tokens
 
-
 def get_search_results(
+    query: str,
+    indexes: list,
+    k: int = 5,
+    reranker_threshold: int = 1,
+    sas_token: str = "",
+    vector_search: bool = False,
+    similarity_k: int = 3,
+    query_vector: list = [],
+) -> List[dict]:
+    headers = {
+        "Content-Type": "application/json",
+        "api-key": os.environ["AZURE_SEARCH_KEY"],
+    }
+    params = {"api-version": os.environ["AZURE_SEARCH_API_VERSION"]}
+
+    agg_search_results = dict()
+
+    for index in indexes:
+        search_payload = {
+            "search": query,
+            "queryType": "semantic",
+            "semanticConfiguration": "my-semantic-config",
+            "count": "true",
+            "speller": "lexicon",
+            "queryLanguage": "en-us",
+            "captions": "extractive",
+            "answers": "extractive",
+            "top": k,
+        }
+        if vector_search:
+            search_payload["vectors"] = [
+                {"value": query_vector, "fields": "chunkVector", "k": k}
+            ]
+            search_payload["select"] = "id, title, chunk, name, location"
+        else:
+            search_payload["select"] = "id, title, chunks, name, location, vectorized"
+
+        resp = requests.post(
+            os.environ["AZURE_SEARCH_ENDPOINT"] + "/indexes/" + index + "/docs/search",
+            data=json.dumps(search_payload),
+            headers=headers,
+            params=params,
+        )
+
+        search_results = resp.json()
+        agg_search_results[index] = search_results
+
+    content = dict()
+    ordered_content = OrderedDict()
+
+    for index, search_results in agg_search_results.items():
+        for result in search_results["value"]:
+            if (
+                result["@search.rerankerScore"] > reranker_threshold
+            ):  # Show results that are at least N% of the max possible score=4
+                content[result["id"]] = {
+                    "title": result["title"],
+                    "name": result["name"],
+                    "location": result["location"] + sas_token
+                    if result["location"]
+                    else "",
+                    "caption": result["@search.captions"][0]["text"],
+                    "index": index,
+                }
+                if vector_search:
+                    content[result["id"]]["chunk"] = result["chunk"]
+                    content[result["id"]]["score"] = result[
+                        "@search.score"
+                    ]  # Uses the Hybrid RRF score
+
+                else:
+                    content[result["id"]]["chunks"] = result["chunks"]
+                    content[result["id"]]["score"] = result[
+                        "@search.rerankerScore"
+                    ]  # Uses the reranker score
+                    content[result["id"]]["vectorized"] = result["vectorized"]
+
+    # After results have been filtered, sort and add the top k to the ordered_content
+    if vector_search:
+        topk = similarity_k
+    else:
+        topk = k * len(indexes)
+
+    count = 0  # To keep track of the number of results added
+    for id in sorted(content, key=lambda x: content[x]["score"], reverse=True):
+        ordered_content[id] = content[id]
+        count += 1
+        if count >= topk:  # Stop after adding 5 results
+            break
+
+    return ordered_content
+
+def update_vector_indexes(ordered_search_results: dict, embedder: OpenAIEmbeddings):
+    """Get as input the results of a text-based multi-index search, vectorize the documents chunks that has not been done before and updates the vector-based indexes"""
+
+    headers = {
+        "Content-Type": "application/json",
+        "api-key": os.environ["AZURE_SEARCH_KEY"],
+    }
+    params = {"api-version": os.environ["AZURE_SEARCH_API_VERSION"]}
+
+    for key, value in ordered_search_results.items():
+        if value["vectorized"] != True:  # If the document has not been vectorized yet
+            i = 0
+            for chunk in value["chunks"]:  # Iterate over the text chunks
+                try:
+                    upload_payload = {  # Insert the chunk and its vector/embedding in the vector-based index
+                        "value": [
+                            {
+                                "id": key + "_" + str(i),
+                                "title": f"{value['metadata_title']}_chunk_{str(i)}",
+                                "chunk": chunk,
+                                "chunkVector": embedder.embed_query(
+                                    chunk if chunk != "" else "-------"
+                                ),
+                                "name": value["metadata_storage_name"],
+                                "location": value["metadata_storage_path"],
+                                "@search.action": "upload",
+                            },
+                        ]
+                    }
+
+                    r = requests.post(
+                        os.environ["AZURE_SEARCH_ENDPOINT"]
+                        + "/indexes/"
+                        + value["index"]
+                        + "-vector"
+                        + "/docs/index",
+                        data=json.dumps(upload_payload),
+                        headers=headers,
+                        params=params,
+                    )
+                    if r.status_code != 200:
+                        print(r.status_code)
+                        print(r.text)
+                    else:
+                        i = i + 1  # increment chunk number
+
+                except Exception as e:
+                    print("Exception:", e)
+                    print(chunk)
+                    continue
+
+        # Update document in text-based index and mark it as "vectorized"
+        upload_payload = {
+            "value": [
+                {"id": key, "vectorized": True, "@search.action": "merge"},
+            ]
+        }
+
+        r = requests.post(
+            os.environ["AZURE_SEARCH_ENDPOINT"]
+            + "/indexes/"
+            + value["index"]
+            + "/docs/index",
+            data=json.dumps(upload_payload),
+            headers=headers,
+            params=params,
+        )
+
+def get_sales_search_results(
     query: str,
     indexes: list,
     k: int = 5,
@@ -368,27 +528,24 @@ def get_search_results(
             search_payload["vectors"] = [
                 {"value": query_vector, "fields": "Vector", "k": k}
             ]
-            search_payload[
-                "select"
-            ] = "id, ServiceName, ServiceType, ServiceCategory, ServiceFamily, Price, Description, InternalComments, chunks"
+            search_payload["select"] = "id, ServiceName, ServiceType, ServiceCategory, ServiceFamily, Price, Description, InternalComments, chunks, metadata_storage_name"
         else:
-            search_payload[
-                "select"
-            ] = "id, ServiceName, ServiceType, ServiceCategory, ServiceFamily, Price, Description, InternalComments, chunks,  ,vectorized"
+            search_payload["select"] = "id, ServiceName, ServiceType, ServiceCategory, ServiceFamily, Price, Description, InternalComments, chunks, metadata_storage_name, vectorized"
 
         resp = requests.post(
             os.environ["AZURE_SEARCH_ENDPOINT"] + "/indexes/" + index + "/docs/search",
             data=json.dumps(search_payload),
             headers=headers,
             params=params,
+            timeout=15,  # Add a timeout value (e.g., 15 seconds)
         )
 
-        search_results = resp.json()
+        search_results = resp.json()       
         agg_search_results[index] = search_results
 
     content = dict()
     ordered_content = OrderedDict()
-
+    
     for index, search_results in agg_search_results.items():
         for result in search_results["value"]:
             if (
@@ -404,6 +561,7 @@ def get_search_results(
                     "Description": result["Description"],
                     "caption": result["@search.captions"][0]["text"],
                     "chunks": result["chunks"],
+                    "location": result["metadata_storage_name"],
                     "index": index,
                 }
                 if vector_search:
@@ -432,7 +590,6 @@ def get_search_results(
             break
 
     return ordered_content
-
 
 def get_docs_search_results(
     query: str,
@@ -535,7 +692,6 @@ def get_docs_search_results(
 
     return ordered_content
 
-
 def update_sales_vector_indexes(
     ordered_search_results: dict, embedder: OpenAIEmbeddings
 ):
@@ -551,7 +707,7 @@ def update_sales_vector_indexes(
         if value["vectorized"] != True:  # If the document has not been vectorized yet
             # Update document in text-based index and mark it as "vectorized"
             value_to_vectorise = (
-                f"{value['Description']} {value['InternalComments']} {value['content']}"
+                f"{value['Description']} {value['ActionArea']} {value['FocusArea']}"
             )
             upload_payload = {
                 "value": [
@@ -572,10 +728,12 @@ def update_sales_vector_indexes(
                 data=json.dumps(upload_payload),
                 headers=headers,
                 params=params,
+                timeout=15,  # Add a timeout value (e.g., 15 seconds)
             )
 
-
-def update_vector_indexes(ordered_search_results: dict, embedder: OpenAIEmbeddings):
+def update_docs_vector_indexes(
+    ordered_search_results: dict, embedder: OpenAIEmbeddings
+):
     """Get as input the results of a text-based multi-index search, vectorize the documents chunks that has not been done before and updates the vector-based indexes"""
 
     headers = {
@@ -586,63 +744,31 @@ def update_vector_indexes(ordered_search_results: dict, embedder: OpenAIEmbeddin
 
     for key, value in ordered_search_results.items():
         if value["vectorized"] != True:  # If the document has not been vectorized yet
-            i = 0
-            for chunk in value["chunks"]:  # Iterate over the text chunks
-                try:
-                    upload_payload = {  # Insert the chunk and its vector/embedding in the vector-based index
-                        "value": [
-                            {
-                                "id": key + "_" + str(i),
-                                "title": f"{value['metadata_title']}_chunk_{str(i)}",
-                                "chunk": chunk,
-                                "chunkVector": embedder.embed_query(
-                                    chunk if chunk != "" else "-------"
-                                ),
-                                "name": value["metadata_storage_name"],
-                                "location": value["metadata_storage_path"],
-                                "@search.action": "upload",
-                            },
-                        ]
-                    }
+            # Update document in text-based index and mark it as "vectorized"
+            value_to_vectorise = (
+                f"{value['Description']} {value['ActionArea']} {value['FocusArea']}"
+            )
+            upload_payload = {
+                "value": [
+                    {
+                        "id": key,
+                        "Vector": embedder.embed_query(value_to_vectorise),
+                        "vectorized": True,
+                        "@search.action": "merge",
+                    },
+                ]
+            }
 
-                    r = requests.post(
-                        os.environ["AZURE_SEARCH_ENDPOINT"]
-                        + "/indexes/"
-                        + value["index"]
-                        + "-vector"
-                        + "/docs/index",
-                        data=json.dumps(upload_payload),
-                        headers=headers,
-                        params=params,
-                    )
-                    if r.status_code != 200:
-                        print(r.status_code)
-                        print(r.text)
-                    else:
-                        i = i + 1  # increment chunk number
-
-                except Exception as e:
-                    print("Exception:", e)
-                    print(chunk)
-                    continue
-
-        # Update document in text-based index and mark it as "vectorized"
-        upload_payload = {
-            "value": [
-                {"id": key, "vectorized": True, "@search.action": "merge"},
-            ]
-        }
-
-        r = requests.post(
-            os.environ["AZURE_SEARCH_ENDPOINT"]
-            + "/indexes/"
-            + value["index"]
-            + "/docs/index",
-            data=json.dumps(upload_payload),
-            headers=headers,
-            params=params,
-        )
-
+            r = requests.post(
+                os.environ["AZURE_SEARCH_ENDPOINT"]
+                + "/indexes/"
+                + value["index"]
+                + "/docs/index",
+                data=json.dumps(upload_payload),
+                headers=headers,
+                params=params,
+                timeout=15,  # Add a timeout value (e.g., 15 seconds)
+            )
 
 def get_answer(
     llm: AzureChatOpenAI,
@@ -809,7 +935,7 @@ class SalesSearchResults(BaseTool):
 
         if self.indexes:
             # Search in text-based indexes first and update corresponding vector indexes
-            ordered_results = get_search_results(
+            ordered_results = get_sales_search_results(
                 query,
                 indexes=self.indexes,
                 k=self.k,
@@ -823,13 +949,13 @@ class SalesSearchResults(BaseTool):
 
             vector_indexes = [index for index in self.indexes]
             if self.vector_only_indexes:
-                vector_indexes = vector_indexes + self.vector_only_indexesZ
+                vector_indexes = vector_indexes + self.vector_only_indexes
 
         if self.vector_only_indexes and not self.indexes:
             vector_indexes = self.vector_only_indexes
             if self.verbose:
                 print("Vector Indexes:", vector_indexes)
-            ordered_results = get_search_results(
+            ordered_results = get_sales_search_results(
                 query,
                 indexes=vector_indexes,
                 k=self.k,

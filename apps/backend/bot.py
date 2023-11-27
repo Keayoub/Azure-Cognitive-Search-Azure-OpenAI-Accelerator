@@ -31,9 +31,9 @@ from botbuilder.core import ActivityHandler, TurnContext
 from botbuilder.schema import ChannelAccount, Activity, ActivityTypes
 
 # Env variables needed by langchain
-os.environ["OPENAI_API_BASE"] = os.environ.get("AZURE_OPENAI_ENDPOINT")
-os.environ["OPENAI_API_KEY"] = os.environ.get("AZURE_OPENAI_API_KEY")
-os.environ["OPENAI_API_VERSION"] = os.environ.get("AZURE_OPENAI_API_VERSION")
+os.environ["OPENAI_API_BASE"] = str(os.environ.get("AZURE_OPENAI_ENDPOINT"))
+os.environ["OPENAI_API_KEY"] = str(os.environ.get("AZURE_OPENAI_API_KEY"))
+os.environ["OPENAI_API_VERSION"] = str(os.environ.get("AZURE_OPENAI_API_VERSION"))
 os.environ["OPENAI_API_TYPE"] = "azure"
 
 
@@ -126,6 +126,7 @@ class MyBot(ActivityHandler):
         vector_only_indexes = ["cogsrch-index-sales-cs"]
         exsp_search = SalesSearchTool(
             llm=llm,
+            indexes=vector_only_indexes,
             vector_only_indexes=vector_only_indexes,
             k=10,
             similarity_k=10,

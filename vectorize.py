@@ -21,7 +21,7 @@ from common.prompts import (
     COMBINE_PROMPT_TEMPLATE,
 )
 from common.utils import (
-    get_search_results,
+    get_sales_search_results,
     model_tokens_limit,
     num_tokens_from_docs,
     num_tokens_from_string,
