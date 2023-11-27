@@ -906,7 +906,7 @@ class DocSearchResults(BaseTool):
 
             vector_indexes = [index for index in self.indexes]
             if self.vector_only_indexes:
-                vector_indexes = vector_indexes + self.vector_only_indexesZ
+                vector_indexes = vector_indexes + self.vector_only_indexes
 
         if self.vector_only_indexes and not self.indexes:
             vector_indexes = self.vector_only_indexes
