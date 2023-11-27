@@ -756,18 +756,19 @@ def update_docs_vector_indexes(
         "api-key": os.environ["AZURE_SEARCH_KEY"],
     }
     params = {"api-version": os.environ["AZURE_SEARCH_API_VERSION"]}
+  
+    
 
     for key, value in ordered_search_results.items():
         if value["vectorized"] != True:  # If the document has not been vectorized yet
-            # Update document in text-based index and mark it as "vectorized"
-            value_to_vectorise = (
-                f"{value['Description']} {value['ActionArea']} {value['FocusArea']}"
-            )
+            # Update document in text-based index and mark it as "vectorized"  
+            # chunk value to 8000 caractere
+            value_to_vectorize = value['content'][:8000]      
             upload_payload = {
                 "value": [
                     {
                         "id": key,
-                        "Vector": embedder.embed_query(value_to_vectorise),
+                        "vector": embedder.embed_query(value_to_vectorize),
                         "vectorized": True,
                         "@search.action": "merge",
                     },
@@ -900,7 +901,7 @@ class DocSearchResults(BaseTool):
                 vector_search=False,
             )
 
-            update_vector_indexes(
+            update_docs_vector_indexes(
                 ordered_search_results=ordered_results, embedder=embedder
             )
 

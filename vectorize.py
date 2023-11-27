@@ -26,6 +26,7 @@ from common.utils import (
     num_tokens_from_docs,
     num_tokens_from_string,
     get_docs_search_results,
+    update_docs_vector_indexes,
 )
 
 from dotenv import load_dotenv
@@ -50,48 +51,12 @@ index2_name = "*"
 indexes = [index1_name]
 QUESTION = "aks"
 
-k = 100  # Number of results per each text_index
+k = 10  # Number of results per each text_index
 ordered_results = get_docs_search_results(
-    QUESTION, indexes, k=100, reranker_threshold=1
+    QUESTION, indexes, k=10, reranker_threshold=1
 )
 print("Number of results:", len(ordered_results))
 
 embedder = OpenAIEmbeddings(deployment="text-embedding-ada-002", chunk_size=1)
 
-for key, value in ordered_results.items():
-    if value["vectorized"] != True:  # If the document has not been vectorized yet
-        print("Vectorizing", len(value["content"]))
-        # Update document in text-based index and mark it as "vectorized"
-        value_to_vectorise = f"{value['content']}"
-        upload_payload = {
-            "value": [
-                {
-                    "my-semantic-config": key,
-                    "Vector": embedder.embed_query(value_to_vectorise),
-                    "vectorized": True,
-                    "@search.action": "merge",
-                },
-            ]
-        }
-
-        r = requests.post(
-            os.environ["AZURE_SEARCH_ENDPOINT"]
-            + "/indexes/"
-            + value["index"]
-            + "/docs/index",
-            data=json.dumps(upload_payload),
-            headers=headers,
-            params=params,
-            timeout=10,  # Add a timeout argument to prevent hanging indefinitely
-        )
-
-        r = requests.post(
-            os.environ["AZURE_SEARCH_ENDPOINT"]
-            + "/indexes/"
-            + value["index"]
-            + "/docs/index",
-            data=json.dumps(upload_payload),
-            headers=headers,
-            params=params,
-            timeout=10,  # Add a timeout argument to prevent hanging indefinitely
-        )
+update_docs_vector_indexes(ordered_search_results=ordered_results, embedder=embedder)
