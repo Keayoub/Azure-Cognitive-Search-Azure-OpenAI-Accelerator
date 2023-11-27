@@ -535,7 +535,7 @@ def get_sales_search_results(
             ]
             search_payload[
                 "select"
-            ] = "id, ServiceName, ServiceType, ServiceCategory, ServiceFamily, Price, Description, InternalComments, chunks, ,ActionArea, FocusArea, metadata_storage_name"
+            ] = "id, ServiceName, ServiceType, ServiceCategory, ServiceFamily, Price, Description, InternalComments, chunks, ActionArea, FocusArea, metadata_storage_name"
         else:
             search_payload[
                 "select"
@@ -666,7 +666,7 @@ def get_docs_search_results(
                     result["@search.rerankerScore"] > reranker_threshold
                 ):  # Show results that are at least N% of the max possible score=4
                     content[result["metadata_storage_path"]] = {
-                        "content": result["content"],
+                        "content": result["content"][:8000],
                         "text": result["text"],
                         "translated_text": result["translated_text"],
                         "merged_content": result["merged_content"],
