@@ -34,9 +34,6 @@ param azureOpenAIAPIVersion string = '2023-05-15'
 @description('Optional. The URL for the Bing Search service.')
 param bingSearchUrl string = 'https://api.bing.microsoft.com/v7.0/search'
 
-@description('Required. The name of the Bing Search service deployed previously.')
-param bingSearchName string
-
 @description('Required. The key for the Bing Search service deployed previously.')
 param bingSearchKey  string
 
