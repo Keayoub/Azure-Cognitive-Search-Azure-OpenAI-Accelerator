@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.23.1.45101",
-      "templateHash": "15820469957931514877"
+      "templateHash": "15907430499290346020"
     }
   },
   "parameters": {
@@ -80,10 +80,10 @@
         "description": "Optional. The URL for the Bing Search service."
       }
     },
-    "bingSearchName": {
+    "bingSearchKey": {
       "type": "string",
       "metadata": {
-        "description": "Required. The name of the Bing Search service deployed previously."
+        "description": "Required. The key for the Bing Search service deployed previously."
       }
     },
     "SQLServerName": {
@@ -154,7 +154,8 @@
       "allowedValues": [
         "B3",
         "S3",
-        "P2v3"
+        "P2v3",
+        "P1v3"
       ],
       "metadata": {
         "description": "Optional, defaults to S3. The SKU of the App Service Plan. Acceptable values are B3, S3 and P2v3."
@@ -268,7 +269,7 @@
             },
             {
               "name": "BING_SUBSCRIPTION_KEY",
-              "value": "[listKeys(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupSearch')), 'Microsoft.Bing/accounts', parameters('bingSearchName')), '2020-06-10').key1]"
+              "value": "[parameters('bingSearchKey')]"
             },
             {
               "name": "SQL_SERVER_NAME",
