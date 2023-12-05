@@ -37,6 +37,9 @@ param bingSearchUrl string = 'https://api.bing.microsoft.com/v7.0/search'
 @description('Required. The name of the Bing Search service deployed previously.')
 param bingSearchName string
 
+@description('Required. The key for the Bing Search service deployed previously.')
+param bingSearchKey  string
+
 @description('Required. The name of the SQL server deployed previously e.g. sqlserver.database.windows.net')
 param SQLServerName string
 
@@ -92,10 +95,10 @@ resource azureSearch 'Microsoft.Search/searchServices@2021-04-01-preview' existi
 }
 
 // Existing Bing Search resource.
-resource bingSearch 'Microsoft.Bing/accounts@2020-06-10' existing = {
-  name: bingSearchName
-  scope: resourceGroup(resourceGroupSearch)
-}
+// resource bingSearch 'Microsoft.Bing/accounts@2020-06-10' existing = {
+//   name: bingSearchName
+//   scope: resourceGroup(resourceGroupSearch)
+// }
 
 // Existing Azure CosmosDB resource.
 resource cosmosDB 'Microsoft.DocumentDB/databaseAccounts@2023-04-15' existing = {
@@ -193,7 +196,7 @@ resource webApp 'Microsoft.Web/sites@2022-09-01' = {
         }
         {
           name: 'BING_SUBSCRIPTION_KEY'
-          value: bingSearch.listKeys().key1
+          value: bingSearchKey
         }
         {
           name: 'SQL_SERVER_NAME'
