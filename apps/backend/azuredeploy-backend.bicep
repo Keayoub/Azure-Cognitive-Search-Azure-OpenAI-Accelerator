@@ -74,6 +74,7 @@ param appServicePlanName string = 'AppServicePlan-Backend-${uniqueString(resourc
   'B3'
   'S3'
   'P2v3'
+  'P1v3'    
 ])
 param appServicePlanSKU string = 'S3'
 
