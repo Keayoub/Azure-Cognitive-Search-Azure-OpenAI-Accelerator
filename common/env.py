@@ -89,52 +89,53 @@ class Simulator():
         state = self.get_env_state()
         on_off_dict = {True: "ON", False: "OFF"}
 
-
-        text_ODtemp_time = "It is {}, {}, and the outdoors temperature is {:.2f} C.".format(state['time'].strftime("%B %d, %Y"), state['time'].strftime("%I:%M %p"), state['OD_temp'])
-        text_HVAC = "The indoors temperature in the house is {:.2f} C.  The HVAC is {}, the heater is {}. The consumption due to temperature control is {:.2f} kW.".format(state['house_state']['current_temp'], on_off_dict[state['house_state']['hvac']["turned_on"]], on_off_dict[state['house_state']['heater']['turned_on']], state['house_state']['heater']['power_consumption']/1000 + state['house_state']['hvac']['power_consumption']/1000)
+        text = "This is the current state of the environment: \n"
+        text += "It is {}, {}, and the outdoors temperature is {:.2f} C. \n".format(state['time'].strftime("%B %d, %Y"), state['time'].strftime("%I:%M %p"), state['OD_temp'])
+        text += "The indoors temperature in the house is {:.2f} C while the target is {:.2f} C.  The air conditioner is {}, the heater is {}. The consumption due to temperature control is {:.2f} kW. \n".format(state['house_state']['current_temp'], state['house_state']['target_temp'], on_off_dict[state['house_state']['hvac']["turned_on"]], on_off_dict[state['house_state']['heater']['turned_on']], state['house_state']['heater']['power_consumption']/1000 + state['house_state']['hvac']['power_consumption']/1000)
         if state['house_state']['EV']['plug_status'] == "plugged":
-            text_EV = "The electric vehicle is {} and the charger is {}. The vehicle's current autonomy is {:.2f} km. The autonomy objective is {:.2f} km. The electric vehicle charger current consumption is {:.2f} kW.".format(state['house_state']['EV']['plug_status'], state['house_state']['EV']['charging_status'], state['house_state']['EV']['current_autonomy'], state['house_state']['EV']['autonomy_objective'], state['house_state']['EV']['power_consumption']/1000)
+            text += "The electric vehicle is {} and the charger is {}. The vehicle's current autonomy is {:.2f} km. The autonomy objective is {:.2f} km. The electric vehicle charger current consumption is {:.2f} kW. \n".format(state['house_state']['EV']['plug_status'], state['house_state']['EV']['charging_status'], state['house_state']['EV']['current_autonomy'], state['house_state']['EV']['autonomy_objective'], state['house_state']['EV']['power_consumption']/1000)
         elif state['house_state']['EV']['plug_status'] == "unplugged":
-            text_EV = "The electric vehicle is {} and probably being used.".format(state['house_state']['EV']['plug_status'])
-        text_house_consumption = "The total power consumption of the house is {:.2f} kW.".format(state['house_state']['house_consumption']/1000)
+            text += "The electric vehicle is {} and probably being used. \n".format(state['house_state']['EV']['plug_status'])
+        text += "The total power consumption of the house is {:.2f} kW. \n".format(state['house_state']['house_consumption']/1000)
         
         ## Add here text for grid prices and energy consumption during the last hour and the last day
         # 
 
-        complete_text = text_ODtemp_time + "\n" + text_HVAC + "\n" + text_EV + "\n" + text_house_consumption 
-
-        return complete_text
+        return text
 
     def get_house_energy_properties_in_natural_language(self):
         house_properties = self.sim_properties["house_properties"]
-        text_hvac = "The HVAC has a coefficient of performance of {:.2f} and a cooling capacity of {:.2f} kW. As a result, when it is on, it consumes {:.2f} kW. ".format(house_properties["hvac_properties"]["COP"], house_properties["hvac_properties"]["cooling_capacity"]/1000, house_properties["hvac_properties"]["cooling_capacity"]/house_properties["hvac_properties"]["COP"]/1000)
-        text_heater = "The heater has a heating capacity of {:.2f} kW. As a result, when it is on, it consumes {:.2f} kW.".format(house_properties["heater_properties"]["heating_capacity"]/1000, house_properties["heater_properties"]["heating_capacity"]/1000)
 
-        complete_text = text_hvac + "\n" + text_heater
+        text = "These are the energy properties of the house: \n"
+        text += "The air conditioner has a coefficient of performance of {:.2f} and a cooling capacity of {:.2f} kW. As a result, when it is on, it consumes {:.2f} kW. \n".format(house_properties["hvac_properties"]["COP"], house_properties["hvac_properties"]["cooling_capacity"]/1000, house_properties["hvac_properties"]["cooling_capacity"]/house_properties["hvac_properties"]["COP"]/1000)
+        text += "The heater has a heating capacity of {:.2f} kW. As a result, when it is on, it consumes {:.2f} kW. \n".format(house_properties["heater_properties"]["heating_capacity"]/1000, house_properties["heater_properties"]["heating_capacity"]/1000)
 
-        return complete_text
+        return text
     
     def get_EV_properties_in_natural_language(self):
         EV_properties = self.sim_properties["house_properties"]["EV_properties"]
-        text_EV = "The electric vehicle has a battery capacity of {:.2f} kWh, a maximum autonomy of {:.2f} km, and a charging power of {:.2f} kW. The charger's efficiency is {:.2f}. As a result, when it is charging, it consumes {:.2f} kW.".format(EV_properties["battery_capacity"]/1000, EV_properties["max_autonomy"], EV_properties["charging_power"]/1000, EV_properties["charging_efficiency"], EV_properties["charging_power"]/1000)
-        
-        complete_text = text_EV
 
-        return complete_text
+        text = "These are the energy properties of the electric vehicle: \n"
+        text += "The electric vehicle has a battery capacity of {:.2f} kWh, a maximum autonomy of {:.2f} km, and a charging power of {:.2f} kW. The charger's efficiency is {:.2f}. As a result, when it is charging, it consumes {:.2f} kW. \n".format(EV_properties["battery_capacity"]/1000, EV_properties["max_autonomy"], EV_properties["charging_power"]/1000, EV_properties["charging_efficiency"], EV_properties["charging_power"]/1000/EV_properties["charging_efficiency"])
+        
+        return text
     
     def describe_action_in_natural_language(self, action):
-        text = "An action was taken: \n"
+        text = "This is the description of the command that was sent: \n"
+        if action['target_temp_command'] is None and action['EV_action'] is None:
+            text += "No command was sent. "
         if action['target_temp_command'] is not None:
             text += "The target indoors temperature is set to {:.2f} C. ".format(action['target_temp_command'])
-        if action['EV_action']['plug_action'] is not None:
-            if action['EV_action']['plug_action'] == "plug":
-                text += "The electric vehicle was plugged back after the trip. "
-            elif action['EV_action']['plug_action'] == "unplug":
-                text += "The electric vehicle is unplugged to go for a trip. "
-        if action['EV_action']['endtrip_autonomy'] is not None and action['EV_action']['plug_action'] == "plug":
-            text += "The electric vehicle returned from its trip with {:.2f} km of autonomy left. ".format(action['EV_action']['endtrip_autonomy'])
-        if action['EV_action']['autonomy_objective'] is not None:
-            text += "The autonomy objective of the electric vehicle is set to {:.2f} km. ".format(action['EV_action']['autonomy_objective'])
+        if action['EV_action'] is not None:
+            if action['EV_action']['plug_action'] is not None:
+                if action['EV_action']['plug_action'] == "plug":
+                    text += "The electric vehicle was plugged back after the trip. "
+                elif action['EV_action']['plug_action'] == "unplug":
+                    text += "The electric vehicle is unplugged to go for a trip. "
+            if action['EV_action']['endtrip_autonomy'] is not None and action['EV_action']['plug_action'] == "plug":
+                text += "The electric vehicle returned from its trip with {:.2f} km of autonomy left. ".format(action['EV_action']['endtrip_autonomy'])
+            if action['EV_action']['autonomy_objective'] is not None:
+                text += "The autonomy objective of the electric vehicle is set to {:.2f} km. ".format(action['EV_action']['autonomy_objective'])
         text += "\n"
         return text
     
@@ -868,33 +869,64 @@ if __name__ == "__main__":
 
     elif test_type == "test_text":
 
-        sim_properties["start_time"] = "2020-07-01 6:00:00"
+        sim_properties["start_time"] = "2020-01-02 6:42:00"
+
         simulator = Simulator(sim_properties)
 
-        print(simulator.get_house_energy_properties_in_natural_language())
-        print(simulator.get_EV_properties_in_natural_language())
 
         action = {
             'target_temp_command': None,
             'EV_action': {
-                'plug_action': None,
+                'plug_action': 'unplug',
                 'endtrip_autonomy': None,
-                'autonomy_objective': 200
+                'autonomy_objective': None
             }
         }   
+        simulator.step(action, 1)
 
-        print(simulator.describe_action_in_natural_language(action))
+#        action = {
+#            'target_temp_command': None,
+#            'EV_action': {
+#                'plug_action': 'plug',
+#                'endtrip_autonomy': 100,
+#                'autonomy_objective': 100
+#            }
+#        }   
 
-        for i in range(60*28):
-            simulator.step(action, 60)
-        simulator.step(action, 60)
+        simulator.step(action, 1)
 
-        env_state = simulator.get_env_state()
-        text = simulator.get_env_state_in_natural_language()
-        print(text)
+        print("--- Static properties (this text can be accessed at any time by the agent) --- \n")
+        print(simulator.get_house_energy_properties_in_natural_language())
+        print(simulator.get_EV_properties_in_natural_language())
+
+        print("--- Initial state (this text can be accessed at any time by the agent) --- \n")
+        print(simulator.get_env_state_in_natural_language())
 
         action = {
-            'target_temp_command': 21,
+            'target_temp_command': 23,
+            'EV_action': None
+        }   
+        print("We send a command. We can ask for the description:")
+        print(simulator.describe_action_in_natural_language(action))
+        simulator.step(action, 1)
+
+        print("The target temperature is changed, the heater turns on: \n")
+        print(simulator.get_env_state_in_natural_language())
+
+
+        for i in range(15):
+            simulator.step(action, 60)
+
+        print("--- We simulate 15 minutes more, to check if the heater works... --- \n")   
+
+        env_state = simulator.get_env_state()
+        print(simulator.get_env_state_in_natural_language())
+
+
+        print("--- The electric car returns from a trip, nearly empty. The owner plugs it and sets the autonomy objective. --- \n")   
+
+        action = {
+            'target_temp_command': None,
             'EV_action': {
                 'plug_action': 'plug',
                 'endtrip_autonomy': 20,
@@ -904,3 +936,14 @@ if __name__ == "__main__":
 
         print(simulator.describe_action_in_natural_language(action))
 
+        simulator.step(action, 1)
+
+        print("-- The state is updated accordingly.")
+        print(simulator.get_env_state_in_natural_language())
+
+        print("--- We simulate 15 minutes more, to check if the charging works... --- \n")   
+
+        for i in range(15):
+            simulator.step(action, 60)
+            
+        print(simulator.get_env_state_in_natural_language())
