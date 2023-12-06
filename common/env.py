@@ -224,7 +224,9 @@ class Simulator():
         OD_temp = mean_temp + np.cos((hour_of_day)/24 * 2*np.pi + np.pi) * temp_daily_var/2
 
         return OD_temp
-        
+
+    def execute_action(self, action :dict):
+        self.step(self, datetime.timedelta(seconds=1), self.time, action)
 
 
 ######### House #########
