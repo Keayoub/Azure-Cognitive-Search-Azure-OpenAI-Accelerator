@@ -2,6 +2,19 @@ import datetime
 import numpy as np
 
 # Datetimes
+def datetime_from_hour_of_day(dt, h, m=0, s=0):
+    r"""
+    Returns the datetime obtained from the hour of day and another datetime
+
+    Parameters:
+
+    - dt: datetime, the datetime of reference
+    - h: int, the hour of the day
+    - m: int, the minute of the hour
+    - s: int, the second of the minute
+    """
+    return datetime.datetime(dt.year, dt.month, dt.day, h, m, s)
+
 def contains_hour_of_day(dt1, dt2, h, m=0, s=0):
     r"""
     Indicates if the interval induced by two datetimes contains an hour of the
@@ -18,7 +31,7 @@ def contains_hour_of_day(dt1, dt2, h, m=0, s=0):
     if dt1 > dt2:
         return False
     else:
-        dt = datetime.datetime(dt2.year, dt2.month, dt2.day, h, m, s)
+        dt = datetime_from_hour_of_day(dt2, h, m, s)
         return dt1 <= dt and dt <= dt2
 
 
@@ -861,17 +874,28 @@ class Grid():
         next_datetime = date_time + delta
         energy = power * delta.seconds / 3600.0
         expenses = self.current_price * energy
+        day_expenses = expenses
+        block_expenses = expenses
 
         self.total_expenses += expenses
         if contains_hour_of_day(date_time, next_datetime, 0):
-            self.day_expenses = 0.0
-        else:
-            self.day_expenses += expenses
-        if any(contains_hour_of_day(date_time, next_datetime, h)\
-               for h in range(0, 24, 2)):
+            delta = next_datetime - datetime_from_hour_of_day(next_datetime, 0)
+            energy = power * delta.seconds / 3600.0
+            day_expenses = self.current_price * energy
+            self.day_expenses = 0
+        self.day_expenses += day_expenses
+        def block_hour(date_time, next_datetime):
+            for h in range(0, 24, 2):
+                if contains_hour_of_day(date_time, next_datetime, h):
+                    return h
+            return None
+        h = block_hour(date_time, next_datetime)
+        if h is not None:
+            delta = next_datetime - datetime_from_hour_of_day(next_datetime, h)
+            energy = power * delta.seconds / 3600.0
+            block_expenses = self.current_price * energy
             self.block_expenses = 0.0
-        else:
-            self.block_expenses += expenses
+        self.block_expenses += block_expenses
 
     def get_grid_state(self):
         """
@@ -1025,7 +1049,7 @@ if __name__ == "__main__":
 
     elif test_type == "test_text":
 
-        sim_properties["start_time"] = "2020-01-02 01:42:00"
+        sim_properties["start_time"] = "2020-01-02 01:48:00"
 
         simulator = Simulator(sim_properties)
 
