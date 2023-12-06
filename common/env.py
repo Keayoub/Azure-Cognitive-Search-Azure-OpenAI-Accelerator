@@ -494,6 +494,127 @@ class Heater(AbstractDevice):
     
 
 
+class ElectricVehicle(AbstractDevice):
+    def __init__(self, device_properties):
+        super().__init__(device_properties)
+        self.device_properties = device_properties
+
+        # Car
+        self.battery_capacity = device_properties["battery_capacity"]   # kWh
+        self.max_autonomy = device_properties["max_autonomy"]           # km
+        self.battery_level = device_properties["battery_level"]         # kWh    
+        self.current_autonomy = self.max_autonomy * self.battery_level / self.battery_capacity # km     # strong assumption: the autonomy is linear with the battery level
+        self.autonomy_objective = device_properties["init_autonomy_objective"] # km
+
+        # Charging station
+        self.charging_power = device_properties["charging_power"]                   # kW
+        self.charging_efficiency = device_properties["charging_efficiency"]         # Ratio
+        self.charging_consumption = self.charging_power/self.charging_efficiency    # kW
+
+        self.plug_status = "plugged" # "plugged", "unplugged"
+        self.charging_status = "idle"   # "idle", "charging"
+
+
+    def step(self, time_step, EV_action, set_battery_level = None, autonomy_objective = None):
+        """
+        Take a time step for the EV. The EV can be plugged or unplugged, and can charge if it is plugged. 
+        The autonomy objective can be set when plugged. This is how an agent can control the consumption of the EV charging process.
+        """
+
+        # Accepts a command to plug/unplug the EV, and/or to set the autonomy objective
+        EV_action_plug = EV_action["plug_action"]
+        EV_action_autonomy_obj = EV_action["autonomy_objective"]
+
+        if EV_action_plug == "plug":
+            assert set_battery_level is not None   # When the EV is plugged, the battery level must be set
+            self.plug_status = "plugged"
+            self.battery_level = set_battery_level
+            
+        elif EV_action_plug == "unplug":
+            self.plug_status = "unplugged"
+
+        elif EV_action_plug is None:        # If no command is given, the EV keeps its current plug status and battery level
+            pass
+
+        if EV_action_autonomy_obj is not None:      # If such a command is given, the EV sets its autonomy objective
+            self.autonomy_objective = EV_action_autonomy_obj
+
+
+        # If the EV is plugged, it can charge
+        ## Charging station decision
+        if self.plug_status == "plugged":
+            if self.current_autonomy < self.autonomy_objective:
+                self.charging_status = "charging"
+            elif self.current_autonomy >= self.autonomy_objective:
+                self.charging_status = "idle"
+
+        ## Battery level update
+            if self.charging_status == "charging":
+                self.battery_level += self.charging_power * time_step.seconds / 3600
+                if self.battery_level > self.battery_capacity:
+                    self.battery_level = self.battery_capacity
+                    self.current_autonomy = self.max_autonomy * self.battery_level / self.battery_capacity
+            elif self.charging_status == "idle":
+                pass
+
+   
+        # If the EV is unplugged, it cannot charge
+        elif self.plug_status == "unplugged":
+            self.battery_level = None       # When the EV is unplugged, the battery level is not known
+            self.charging_status = "idle"   # The EV cannot charge if it is unplugged
+            self.current_autonomy = None    # The autonomy is not known if the EV is unplugged
+        
+        return self.get_EV_state()  
+  
+  
+    def get_EV_state(self):
+        EV_state = {
+            "battery_level": self.battery_level,        
+            "current_autonomy": self.current_autonomy,
+            "plug_status": self.plug_status,
+            "charging_status": self.charging_status,
+            "autonomy_objective": self.autonomy_objective,
+        }
+
+        return EV_state
+
+
+    def power_consumption(self):
+        """
+        Return the power consumption of the EV
+        """
+        if self.charging_status == "charging":
+            power_cons = self.charging_consumption
+        else:
+            power_cons = 0
+        return power_cons
+    
+
+
+
+        
+
+        
+
+
+
+
+    
+
+######### Grid #########
+
+class Grid():
+    """
+    Grid simulator
+    
+    Provides a price signal to the house depending on the time of the day, and the current outdoor temperature
+    """
+
+    def __init__(self):
+        pass
+
+
+
 
 if __name__ == "__main__":
 
