@@ -129,7 +129,7 @@ class MyBot(ActivityHandler):
         chatgpt_search = ChatGPTTool(
             llm=llm, callback_manager=cb_manager, return_direct=True
         )
-        simulator_search = SimulatorTool(
+        simulator_search = HouseControlTool(
             llm=llm, callback_manager=cb_manager, return_direct=True
         )
 

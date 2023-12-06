@@ -64,11 +64,41 @@ except Exception as e:
         DOCSEARCH_PROMPT_PREFIX,
     )
 
-class SimulatorTool(BaseTool):
+
+class HouseControlTool(BaseTool):
     """Tool for a HQ Simulator"""
 
-    name = "@simulator"
-    description = "useful when the questions includes the term: @simulator.\n"
+    name = "@housecontrol"
+    description = "useful when the questions includes the term: @housecontrol.\n"
+
+    llm: AzureChatOpenAI
+
+    def _run(self, query: str) -> str:
+        try:
+            agent_executor = create_python_agent(
+                llm=OpenAI(temperature=0, max_tokens=1000),
+                tool=PythonREPLTool(),
+                verbose=True,
+                agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+            )
+            response = agent_executor.run(query)
+
+            return response
+        except Exception as e:
+            response = str(e)
+
+        return response
+
+    async def _arun(self, query: str) -> str:
+        """Use the tool asynchronously."""
+        raise NotImplementedError("ChatGPTTool does not support async")
+
+
+class PlanningTool(BaseTool):
+    """Tool for a HQ Simulator"""
+
+    name = "@planing"
+    description = "useful when the questions includes the term: @planing.\n"
 
     llm: AzureChatOpenAI
 
