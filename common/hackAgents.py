@@ -1,8 +1,8 @@
 import re
 import os
 import json
+import requests
 from typing import Any, Dict, List, Optional, Awaitable, Callable, Tuple, Type, Union
-
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.docstore.document import Document
 from langchain.chat_models import AzureChatOpenAI
@@ -34,7 +34,6 @@ from langchain.llms.openai import OpenAI
 from langchain_experimental.agents.agent_toolkits import create_python_agent
 from langchain_experimental.tools import PythonREPLTool
 from utils import run_agent
-from env import Simulator
 from langchain.output_parsers import PydanticOutputParser
 
 try:
@@ -56,66 +55,40 @@ class HouseControlTool(BaseTool):
 
     llm: AzureChatOpenAI
     k: int = 5
-    house_simulator:Simulator
 
-    def _run(
-        self,
-        query: str
-    ) -> str:
+    def _run(self, query: str) -> str:
         try:
-            # tools = [HouseControlAction(house_simulator=self.house_simulator)]
-            # parsed_input = self._parse_input(tool_input)
-
-            # agent_executor = initialize_agent(
-            #     tools=tools,
-            #     llm=self.llm,
-            #     agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-            #     agent_kwargs={"prefix": HOUSECONTROL_PROMPT_PREFIX},
-            #     callback_manager=self.callbacks,
-            #     verbose=self.verbose,
-            #     handle_parsing_errors=True,
-            # )
-
-            # for i in range(2):
-            #     try:
-            #         response = run_agent(parsed_input, agent_executor)
-            #         break
-            #     except Exception as e:
-            #         response = str(e)
-            #         continue
-
-
             # # reponse represents the action to be taken
             # # we will now execute the action
-            # # we will use the simulator to execute the action            
-            # # reponse format JSON     
+            # # we will use the simulator to execute the action
+            # # reponse format JSON
             chat_chain = LLMChain(
-                llm=self.llm, 
+                llm=self.llm,
                 prompt=HOUSECONTROL_PROMPT_PREFIX,
                 callback_manager=self.callbacks,
-                verbose=self.verbose
+                verbose=self.verbose,
             )
 
-            response_action = chat_chain.run(query) 
+            response_action = chat_chain.run(query)
 
             # executer action
-            parser = PydanticOutputParser(pydantic_object=Action)    
+            parser = PydanticOutputParser(pydantic_object=Action)
             action = parser.parse(response_action)
-            
-            if(response_action == None):
-                return "No Results Found"
-                        
-            house_action =  {
-            'target_temp_command': response_action["target_temp_command"],
-            'EV_action': {
-                'plug_action': None,
-                'endtrip_autonomy': None,
-                'autonomy_objective': response_action["target_autonomy_command"]
-            }
-        }   
-            house_simulator.step(house_action, 1)
-            return house_simulator.get_env_state_in_natural_language()
 
+            if response_action == None:
+                return "No Results Found"
+
+            house_action = {
+                "target_temp_command": response_action["target_temp_command"],
+                "EV_action": {
+                    "plug_action": None,
+                    "endtrip_autonomy": None,
+                    "autonomy_objective": response_action["target_autonomy_command"],
+                },
+            }
+            
+            # call function app to execute action
+            return
         except Exception as e:
             print(e)
 
@@ -125,41 +98,37 @@ class HouseControlTool(BaseTool):
 
 
 class HouseControlAction(BaseTool):
-   """Tool for a House Control Wrapper"""
-
     name = "@housecontrol"
     description = "useful when the questions includes the term: @housecontrol.\n"
-    action:str
-    house_simulator:Simulator
 
-    def _run(self, query: str) -> str:       
+    def _run(self, query: str) -> str:
         try:
-            return house_simulator.describe_action_in_natural_language(action)
+            return ""
         except:
             return "No Results Found"
 
     async def _arun(self, query: str) -> str:
         """Use the tool asynchronously."""
         raise NotImplementedError("HouseControl Tool does not support async")
+
 
 class HouseControlStatus(BaseTool):
-   """Tool for a House Control Wrapper"""
+    """Tool for a House Control Wrapper"""
 
     name = "@housecontrol"
     description = "useful when the questions includes the term: @housecontrol.\n"
 
-    house_simulator:Simulator
-
-    def _run(self, query: str) -> str:        
+    def _run(self, query: str) -> str:
         try:
-            return  house_simulator.get_env_state_in_natural_language()
+            return """The current state of the house is:"""
         except:
             return "No Results Found"
 
     async def _arun(self, query: str) -> str:
         """Use the tool asynchronously."""
         raise NotImplementedError("HouseControl Tool does not support async")
-    
+
+
 class Action(BaseModel):
     target_temp_command: str
     target_autonomy_command: str

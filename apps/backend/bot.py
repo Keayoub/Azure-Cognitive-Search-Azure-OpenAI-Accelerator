@@ -63,8 +63,7 @@ class BotServiceCallbackHandler(BaseCallbackHandler):
 
 
 # Bot Class
-class MyBot(ActivityHandler):
-    simulator: Simulator
+class MyBot(ActivityHandler):   
 
     def __init__(self):
         self.model_name = os.environ.get("AZURE_OPENAI_MODEL_NAME")
@@ -128,7 +127,7 @@ class MyBot(ActivityHandler):
         www_search = BingSearchTool(
             llm=llm, k=5, callback_manager=cb_manager, return_direct=True
         )
-        sql_search = SQLDbTool(llm=llm, k=10, callback_manager=cb_manager, return_direct=True)
+        #sql_search = SQLDbTool(llm=llm, k=10, callback_manager=cb_manager, return_direct=True)
         # chatgpt_search = ChatGPTTool(
         #     llm=llm, callback_manager=cb_manager, return_direct=True
         # )
@@ -136,8 +135,7 @@ class MyBot(ActivityHandler):
         simulator_search = HouseControlTool(
             llm=llm,
             callback_manager=cb_manager,
-            return_direct=True,
-            house_simulator=self.simulator,
+            return_direct=True            
         )
 
         tools = [simulator_search, www_search]
