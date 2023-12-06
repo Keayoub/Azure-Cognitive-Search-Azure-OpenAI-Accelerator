@@ -148,7 +148,11 @@ class Simulator():
         price = state['grid_state']['price']
         text += f'The current energy price is {price * 1e5:.1f} cents per kWh.\n'
         total_expenses = state['grid_state']['total_expenses']
-        text += f'The total expenses amount to {total_expenses:.2f}$.\n'
+        text += f'The total expenses amount to {total_expenses:.2f}$. '
+        day_expenses = state['grid_state']['day_expenses']
+        text += f'The current day expenses amount to {day_expenses:.2f}$. '
+        block_expenses = state['grid_state']['block_expenses']
+        text += f'The current block expenses amount to {block_expenses:.2f}$.\n'
 
         return text
 
@@ -793,6 +797,8 @@ class Grid():
         self.tomorrow = grid_properties["tomorrow"]
         self.current_price = self.day_price
         self.total_expenses = 0.0
+        self.day_expenses = 0.0
+        self.block_expenses = 0.0
 
     def step(self, od_temp, power, delta, date_time):
         """
@@ -852,9 +858,20 @@ class Grid():
         r"""
         Update the recorded expenses
         """
+        next_datetime = date_time + delta
         energy = power * delta.seconds / 3600.0
         expenses = self.current_price * energy
+
         self.total_expenses += expenses
+        if contains_hour_of_day(date_time, next_datetime, 0):
+            self.day_expenses = 0.0
+        else:
+            self.day_expenses += expenses
+        if any(contains_hour_of_day(date_time, next_datetime, h)\
+               for h in range(0, 24, 2)):
+            self.block_expenses = 0.0
+        else:
+            self.block_expenses += expenses
 
     def get_grid_state(self):
         """
@@ -866,7 +883,9 @@ class Grid():
             "today": self.today,
             "tomorrow": self.tomorrow,
             "price": self.current_price,
-            "total_expenses": self.total_expenses
+            "total_expenses": self.total_expenses,
+            "day_expenses": self.day_expenses,
+            "block_expenses": self.block_expenses
         }
 
 if __name__ == "__main__":
@@ -1006,7 +1025,7 @@ if __name__ == "__main__":
 
     elif test_type == "test_text":
 
-        sim_properties["start_time"] = "2020-01-02 15:42:00"
+        sim_properties["start_time"] = "2020-01-02 01:42:00"
 
         simulator = Simulator(sim_properties)
 
