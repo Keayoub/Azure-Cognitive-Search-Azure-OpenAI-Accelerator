@@ -33,91 +33,105 @@ from langchain.chat_models import ChatOpenAI
 from langchain.llms.openai import OpenAI
 from langchain_experimental.agents.agent_toolkits import create_python_agent
 from langchain_experimental.tools import PythonREPLTool
+from utils import run_agent
+from env import Simulator
 
 try:
     from .prompts import (
-        COMBINE_QUESTION_PROMPT,
-        COMBINE_PROMPT,
-        COMBINE_CHAT_PROMPT,
-        CSV_PROMPT_PREFIX,
-        CSV_PROMPT_SUFFIX,
-        MSSQL_PROMPT,
-        MSSQL_AGENT_PREFIX,
-        MSSQL_AGENT_FORMAT_INSTRUCTIONS,
-        CHATGPT_PROMPT,
-        BING_PROMPT_PREFIX,
-        DOCSEARCH_PROMPT_PREFIX,
+        HOUSECONTROL_PROMPT_PREFIX,
     )
 except Exception as e:
     print(e)
-    from prompts import (
-        COMBINE_QUESTION_PROMPT,
-        COMBINE_PROMPT,
-        COMBINE_CHAT_PROMPT,
-        CSV_PROMPT_PREFIX,
-        CSV_PROMPT_SUFFIX,
-        MSSQL_PROMPT,
-        MSSQL_AGENT_PREFIX,
-        MSSQL_AGENT_FORMAT_INSTRUCTIONS,
-        CHATGPT_PROMPT,
-        BING_PROMPT_PREFIX,
-        DOCSEARCH_PROMPT_PREFIX,
-    )
+    from prompts import HOUSECONTROL_PROMPT_PREFIX
 
 
+######## TOOL CLASSES #####################################
+###########################################################
 class HouseControlTool(BaseTool):
-    """Tool for a HQ Simulator"""
+    """Tool for a House Control Wrapper"""
 
     name = "@housecontrol"
     description = "useful when the questions includes the term: @housecontrol.\n"
 
     llm: AzureChatOpenAI
+    k: int = 5
+    house_simulator:Simulator
 
-    def _run(self, query: str) -> str:
+    def _run(
+        self,
+        tool_input: Union[str, Dict],
+    ) -> str:
         try:
-            agent_executor = create_python_agent(
-                llm=OpenAI(temperature=0, max_tokens=1000),
-                tool=PythonREPLTool(),
-                verbose=True,
-                agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+            tools = [HouseControlAction(house_simulator=self.house_simulator)]
+            parsed_input = self._parse_input(tool_input)
+
+            agent_executor = initialize_agent(
+                tools=tools,
+                llm=self.llm,
+                agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+                agent_kwargs={"prefix": HOUSECONTROL_PROMPT_PREFIX},
+                callback_manager=self.callbacks,
+                verbose=self.verbose,
+                handle_parsing_errors=True,
             )
-            response = agent_executor.run(query)
+
+            for i in range(2):
+                try:
+                    response = run_agent(parsed_input, agent_executor)
+                    break
+                except Exception as e:
+                    response = str(e)
+                    continue
+
+
+            # reponse represents the action to be taken
+            # we will now execute the action
+            # we will use the simulator to execute the action            
+            # reponse format JSON      
 
             return response
-        except Exception as e:
-            response = str(e)
 
-        return response
+        except Exception as e:
+            print(e)
 
     async def _arun(self, query: str) -> str:
         """Use the tool asynchronously."""
-        raise NotImplementedError("ChatGPTTool does not support async")
+        raise NotImplementedError("HouseControl Tool does not support async")
 
 
-class PlanningTool(BaseTool):
-    """Tool for a HQ Simulator"""
+class HouseControlStatus(BaseTool):
+   """Tool for a House Control Wrapper"""
 
-    name = "@planing"
-    description = "useful when the questions includes the term: @planing.\n"
+    name = "@housecontrol"
+    description = "useful when the questions includes the term: @housecontrol.\n"
 
-    llm: AzureChatOpenAI
+    house_simulator:Simulator
 
-    def _run(self, query: str) -> str:
+    def _run(self, query: str) -> str:        
         try:
-            agent_executor = create_python_agent(
-                llm=OpenAI(temperature=0, max_tokens=1000),
-                tool=PythonREPLTool(),
-                verbose=True,
-                agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-            )
-            response = agent_executor.run(query)
-
-            return response
-        except Exception as e:
-            response = str(e)
-
-        return response
+            return  house_simulator.get_env_state_in_natural_language()
+        except:
+            return "No Results Found"
 
     async def _arun(self, query: str) -> str:
         """Use the tool asynchronously."""
-        raise NotImplementedError("ChatGPTTool does not support async")
+        raise NotImplementedError("HouseControl Tool does not support async")
+
+
+class HouseControlAction(BaseTool):
+   """Tool for a House Control Wrapper"""
+
+    name = "@housecontrol"
+    description = "useful when the questions includes the term: @housecontrol.\n"
+    action:str
+    house_simulator:Simulator
+
+    def _run(self, query: str) -> str:       
+        try:
+            return house_simulator.describe_action_in_natural_language(action)
+        except:
+            return "No Results Found"
+
+    async def _arun(self, query: str) -> str:
+        """Use the tool asynchronously."""
+        raise NotImplementedError("HouseControl Tool does not support async")

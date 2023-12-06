@@ -29,6 +29,7 @@ from prompts import WELCOME_MESSAGE, CUSTOM_CHATBOT_PREFIX, CUSTOM_CHATBOT_SUFFI
 from hackAgents import SimulatorTool
 from botbuilder.core import ActivityHandler, TurnContext
 from botbuilder.schema import ChannelAccount, Activity, ActivityTypes
+from env import Simulator
 
 # Env variables needed by langchain
 os.environ["OPENAI_API_BASE"] = os.environ.get("AZURE_OPENAI_ENDPOINT")
@@ -63,6 +64,8 @@ class BotServiceCallbackHandler(BaseCallbackHandler):
 
 # Bot Class
 class MyBot(ActivityHandler):
+    
+    simulator:Simulator
     def __init__(self):
         self.model_name = os.environ.get("AZURE_OPENAI_MODEL_NAME")
 
@@ -126,14 +129,15 @@ class MyBot(ActivityHandler):
             llm=llm, k=5, callback_manager=cb_manager, return_direct=True
         )
         # sql_search = SQLDbTool(llm=llm, k=10, callback_manager=cb_manager, return_direct=True)
-        chatgpt_search = ChatGPTTool(
-            llm=llm, callback_manager=cb_manager, return_direct=True
-        )
-        simulator_search = HouseControlTool(
-            llm=llm, callback_manager=cb_manager, return_direct=True
-        )
+        # chatgpt_search = ChatGPTTool(
+        #     llm=llm, callback_manager=cb_manager, return_direct=True
+        # )
 
-        tools = [simulator_search, www_search, chatgpt_search]
+        simulator_search = HouseControlTool(
+            llm=llm, callback_manager=cb_manager, return_direct=True, house_simulator=self.simulator)
+        
+
+        tools = [simulator_search, www_search]
 
         # Set brain Agent with persisten memory in CosmosDB
         cosmos = CosmosDBChatMessageHistory(
