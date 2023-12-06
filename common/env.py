@@ -15,22 +15,31 @@ house_properties = {
     "hvac_properties": {
         "id": "hvac_1",
         "COP": 2.5,
-        "cooling_capacity": 5000,
+        "cooling_capacity": 5000, # W
         "latent_cooling_fraction": 0.35,
     },
     "heater_properties": {
         "id": "heater_1",
-        "heating_capacity": 10000,
+        "heating_capacity": 10000,  # W
     },
+    "EV_properties": {
+        "id": "EV_1",
+        "battery_capacity": 40000, # Wh
+        "max_autonomy": 200, # km
+        "battery_level": 40000, # Wh
+        "init_autonomy_objective": 200, # km
+        "charging_power": 9000, # W
+        "charging_efficiency": 0.9, # Ratio
+    }
 }
 
 
 sim_properties = {
     "start_time": "2020-01-01 00:00:00",
     "house_properties": house_properties,
-    "max_mean_temp": 25,
-    "min_mean_temp": -15,
-    "temp_daily_var": 10,
+    "max_mean_temp": 25,    # Max mean temperature in Celsius
+    "min_mean_temp": -15,   # Min mean temperature in Celsius
+    "temp_daily_var": 10,   # Daily temperature variation in Celsius
 }
 
 
@@ -61,9 +70,7 @@ class Simulator():
         
         self.update_ODtemperature()
 
-        target_temp_command = action['target_temp_command']           # None if no command, otherwise, value in Celsius
-
-        self.house.step(self.OD_temp, datetime.timedelta(seconds=time_step), self.time, target_temp_command)
+        self.house.step(self.OD_temp, datetime.timedelta(seconds=time_step), self.time, action)
 
         env_state = self.get_env_state()
         return env_state
@@ -156,7 +163,7 @@ class House():
         self.Cm = house_properties["Cm"]
 
 
-        # HVACs
+        # Heating and cooling devices
         self.hvac_properties = house_properties["hvac_properties"]
         self.heater_properties = house_properties["heater_properties"]
 
@@ -164,7 +171,10 @@ class House():
         self.heater = Heater(self.heater_properties)
 
 
-    def step(self, od_temp, time_step, date_time, target_temp_command):
+        # Electric vehicle
+        self.EV = ElectricVehicle(house_properties["EV_properties"])
+
+    def step(self, od_temp, time_step, date_time, action):
         """
         Take a time step for the house
 
@@ -178,6 +188,8 @@ class House():
         target_temp_command: float to the new target temperature, None if not necessary to command
         """
 
+        target_temp_command = action["target_temp_command"]
+
         self.update_temperature(od_temp, time_step, date_time)
 
         if target_temp_command:
@@ -185,6 +197,8 @@ class House():
 
         self.hvac.step(self.target_temp, self.tolerance_temp, self.current_temp)
         self.heater.step(self.target_temp, self.tolerance_temp, self.current_temp)
+
+        self.EV.step(time_step, action["EV_action"])
 
     def get_house_state(self):
         """
@@ -196,9 +210,10 @@ class House():
         house_state = {
             "current_temp": self.current_temp,
             "target_temp": self.target_temp,
-            "hvac": self.hvac.turned_on,
-            "heater": self.heater.turned_on,
-            "consumption": self.hvac.power_consumption() + self.heater.power_consumption(),
+            "hvac": self.hvac.get_hvac_state(),
+            "heater": self.heater.get_heater_state(),
+            "EV": self.EV.get_EV_state(),
+            "house_consumption": self.hvac.power_consumption() + self.heater.power_consumption() + self.EV.power_consumption(),
         }
 
         return house_state
@@ -400,7 +415,12 @@ class HVAC(AbstractDevice):
 
         return power_cons
 
-
+    def get_hvac_state(self):
+        hvac_state = {
+            "turned_on": self.turned_on,
+            "power_consumption": self.power_consumption(),
+        }
+        return hvac_state
 
 class Heater(AbstractDevice):
     """
@@ -492,43 +512,82 @@ class Heater(AbstractDevice):
 
         return power_cons
     
+    def get_heater_state(self):
+        heater_state = {
+            "turned_on": self.turned_on,
+            "power_consumption": self.power_consumption(),
+        }
+        return heater_state
 
 
 class ElectricVehicle(AbstractDevice):
+    """
+    Simulator of Electric Vehicle object (EV)
+    
+    Attributes:
+        -- Car --   
+        battery_capacity: float, battery capacity of the EV, in Wh
+        max_autonomy: float, maximum autonomy of the EV, in km
+        battery_level: float, current battery level of the EV, in Wh
+        current_autonomy: float, current autonomy of the EV, in km
+        autonomy_objective: float, autonomy objective of the EV, in km
+        plug_status: string, status of the EV plug, "plugged" or "unplugged"
+        -- Charging station --
+        charging_power: float, power of the charging station, in W
+        charging_efficiency: float, efficiency of the charging station, ratio
+        charging_consumption: float,  consumption of the charging station, in W
+        charging_status: string, status of the EV charging station, "idle" or "charging"
+
+    Main functions:
+        step(self, time_step, EV_action): take a step in time for this EV, given action of EV agent
+        power_consumption(self): compute the electric power consumption of the EV
+        get_EV_state(self): return the state of the EV
+
+    """
+
+
     def __init__(self, device_properties):
         super().__init__(device_properties)
         self.device_properties = device_properties
 
         # Car
-        self.battery_capacity = device_properties["battery_capacity"]   # kWh
+        self.battery_capacity = device_properties["battery_capacity"]   # Wh
         self.max_autonomy = device_properties["max_autonomy"]           # km
-        self.battery_level = device_properties["battery_level"]         # kWh    
+        self.battery_level = device_properties["battery_level"]         # Wh    
         self.current_autonomy = self.max_autonomy * self.battery_level / self.battery_capacity # km     # strong assumption: the autonomy is linear with the battery level
         self.autonomy_objective = device_properties["init_autonomy_objective"] # km
 
         # Charging station
-        self.charging_power = device_properties["charging_power"]                   # kW
+        self.charging_power = device_properties["charging_power"]                   # W
         self.charging_efficiency = device_properties["charging_efficiency"]         # Ratio
-        self.charging_consumption = self.charging_power/self.charging_efficiency    # kW
+        self.charging_consumption = self.charging_power/self.charging_efficiency    # W
 
         self.plug_status = "plugged" # "plugged", "unplugged"
         self.charging_status = "idle"   # "idle", "charging"
 
 
-    def step(self, time_step, EV_action, set_battery_level = None, autonomy_objective = None):
+    def step(self, time_step, EV_action):
         """
         Take a time step for the EV. The EV can be plugged or unplugged, and can charge if it is plugged. 
         The autonomy objective can be set when plugged. This is how an agent can control the consumption of the EV charging process.
         """
 
         # Accepts a command to plug/unplug the EV, and/or to set the autonomy objective
-        EV_action_plug = EV_action["plug_action"]
-        EV_action_autonomy_obj = EV_action["autonomy_objective"]
+        if EV_action is None:
+            EV_action_plug = None
+            EV_action_endtrip_autonomy = None
+            EV_action_autonomy_obj = None
+        else:
+            EV_action_plug = EV_action["plug_action"]
+            EV_action_endtrip_autonomy = EV_action["endtrip_autonomy"]
+            EV_action_autonomy_obj = EV_action["autonomy_objective"]
 
         if EV_action_plug == "plug":
-            assert set_battery_level is not None   # When the EV is plugged, the battery level must be set
-            self.plug_status = "plugged"
-            self.battery_level = set_battery_level
+            if self.plug_status == "unplugged":
+                assert EV_action_endtrip_autonomy is not None   # When the EV is plugged after being unplugged (return from a trip), the remaining autonomy must be told.
+                self.battery_level = EV_action_endtrip_autonomy * self.battery_capacity / self.max_autonomy
+                self.current_autonomy = EV_action_endtrip_autonomy
+            self.plug_status = "plugged" 
             
         elif EV_action_plug == "unplug":
             self.plug_status = "unplugged"
@@ -553,7 +612,8 @@ class ElectricVehicle(AbstractDevice):
                 self.battery_level += self.charging_power * time_step.seconds / 3600
                 if self.battery_level > self.battery_capacity:
                     self.battery_level = self.battery_capacity
-                    self.current_autonomy = self.max_autonomy * self.battery_level / self.battery_capacity
+                self.current_autonomy = self.max_autonomy * self.battery_level / self.battery_capacity
+
             elif self.charging_status == "idle":
                 pass
 
@@ -565,20 +625,7 @@ class ElectricVehicle(AbstractDevice):
             self.current_autonomy = None    # The autonomy is not known if the EV is unplugged
         
         return self.get_EV_state()  
-  
-  
-    def get_EV_state(self):
-        EV_state = {
-            "battery_level": self.battery_level,        
-            "current_autonomy": self.current_autonomy,
-            "plug_status": self.plug_status,
-            "charging_status": self.charging_status,
-            "autonomy_objective": self.autonomy_objective,
-        }
-
-        return EV_state
-
-
+    
     def power_consumption(self):
         """
         Return the power consumption of the EV
@@ -588,6 +635,21 @@ class ElectricVehicle(AbstractDevice):
         else:
             power_cons = 0
         return power_cons
+  
+    def get_EV_state(self):
+        EV_state = {
+            "battery_level": self.battery_level,        
+            "current_autonomy": self.current_autonomy,
+            "plug_status": self.plug_status,
+            "charging_status": self.charging_status,
+            "autonomy_objective": self.autonomy_objective,
+            "power_consumption": self.power_consumption(),
+        }
+
+        return EV_state
+
+
+
     
 
 
@@ -618,20 +680,135 @@ class Grid():
 
 if __name__ == "__main__":
 
-    sim_properties["start_time"] = "2020-0-01 6:00:00"
 
+    test_type = "test_HVAC"     # "test_EV", "test_HVAC"
+    
     simulator = Simulator(sim_properties)
 
+    if test_type == "test_EV":
 
-    action = {
-        'target_temp_command': None
-    }
-
-    for i in range(60*28):
-        simulator.step(action, 60)
         env_state = simulator.get_env_state()
-        if i % 2 == 0:
-            print("Time: {}, Current temp: {:.2f} C, OD temp: {:.2f} C, Consumption: {:.2f} W, HVAC: {}, Heater: {}".format(env_state['time'], env_state['house_state']['current_temp'], env_state['OD_temp'], env_state['house_state']['consumption'], env_state['house_state']['hvac'], env_state['house_state']['heater'])) 
+
+        print("Initial state")
+        print(env_state["house_state"]["EV"])
+        print("------------------")
+
+
+        action = {
+            'target_temp_command': None,
+            'EV_action': {
+                'plug_action': 'plug',
+                'endtrip_autonomy': 20,
+                'autonomy_objective': 200
+            }
+        }
+        env_state = simulator.step(action, 60)
+
+        print("After redundant action of plugging")
+        print(env_state["house_state"]["EV"])
+        print("------------------")
+
+
+        action = {
+            'target_temp_command': None,
+            'EV_action': {
+                'plug_action': 'unplug',
+                'endtrip_autonomy': None,
+                'autonomy_objective': None
+            }
+        }
+        env_state = simulator.step(action, 60)
+
+        print("After unplugging")
+        print(env_state["house_state"]["EV"])
+        print("------------------")
+
+
+        action = {
+            'target_temp_command': None,
+            'EV_action': {
+                'plug_action': None,
+                'endtrip_autonomy': None,
+                'autonomy_objective': None
+            }
+        }
+        
+        for i in range(60):
+            simulator.step(action, 60)
+            env_state = simulator.get_env_state()
+        env_state = simulator.step(action, 60)
+
+        print("After 1 hour of unplugged")
+        print(env_state["house_state"]["EV"])
+        print("------------------")
+        
+        action = {
+            'target_temp_command': None,
+            'EV_action': {
+                'plug_action': 'plug',
+                'endtrip_autonomy': 100,
+                'autonomy_objective': 150
+            }
+        }
+        env_state = simulator.step(action, 60)
+
+        print("After plugging back and setting autonomy objective to 150 km")
+        print(env_state["house_state"]["EV"])
+        print("------------------")
+
+
+        for i in range(60):
+            simulator.step(action, 60)
+        env_state = simulator.get_env_state()
+        print("After 1 hour of charging")
+        print(env_state["house_state"]["EV"])
+        print("------------------")
+
+
+        for i in range(600):
+            simulator.step(action, 60)
+        env_state = simulator.get_env_state()
+        print("After 10 hours of charging")
+        print(env_state["house_state"]["EV"])
+        print("------------------")
+
+        
+        action = {
+            'target_temp_command': None,
+            'EV_action': {
+                'plug_action': None,
+                'endtrip_autonomy': None,
+                'autonomy_objective': 200
+            }
+        }   
+
+        env_state = simulator.step(action, 60)
+        print("After setting autonomy objective to 200 km")
+        print(env_state["house_state"]["EV"])
+        print("------------------")
+
+        for i in range(60):
+            simulator.step(action, 60)
+        env_state = simulator.get_env_state()
+        print("After 1 hour of charging")
+        print(env_state["house_state"]["EV"])
+        print("------------------")
+
+
+    elif test_type == "test_HVAC":
+
+        sim_properties["start_time"] = "2020-01-01 6:00:00"
+
+        action = {
+            'target_temp_command': None,
+            'EV_action': None
+        }
+
+        for i in range(60*28):
+            simulator.step(action, 60)
+            env_state = simulator.get_env_state()
+            if i % 2 == 0:
+                print("Time: {}, Current temp: {:.2f} C, OD temp: {:.2f} C, House consumption: {:.2f} W, HVAC: {}, Heater: {}".format(env_state['time'], env_state['house_state']['current_temp'], env_state['OD_temp'], env_state['house_state']['house_consumption'], env_state['house_state']['hvac']["turned_on"], env_state['house_state']['heater']['turned_on'])) 
 
 
 
