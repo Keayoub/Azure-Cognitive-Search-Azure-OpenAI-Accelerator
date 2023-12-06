@@ -1,6 +1,38 @@
 import datetime
 import numpy as np
 
+# Datetimes
+def datetime_from_hour_of_day(dt, h, m=0, s=0):
+    r"""
+    Returns the datetime obtained from the hour of day and another datetime
+
+    Parameters:
+
+    - dt: datetime, the datetime of reference
+    - h: int, the hour of the day
+    - m: int, the minute of the hour
+    - s: int, the second of the minute
+    """
+    return datetime.datetime(dt.year, dt.month, dt.day, h, m, s)
+
+def contains_hour_of_day(dt1, dt2, h, m=0, s=0):
+    r"""
+    Indicates if the interval induced by two datetimes contains an hour of the
+    day
+
+    Parameters:
+
+    - dt1: datetime, the first datetime
+    - dt2: datetime, the second datetime
+    - h: int, the hour of the day
+    - m: int, the minute of the hour
+    - s: int, the second of the minute
+    """
+    if dt1 > dt2:
+        return False
+    else:
+        dt = datetime_from_hour_of_day(dt2, h, m, s)
+        return dt1 <= dt and dt <= dt2
 
 
 house_properties = {
@@ -33,10 +65,21 @@ house_properties = {
     }
 }
 
+grid_properties = {
+    "prices": {
+        "peak_price": 5e-4, # $/Wh (between 6:00-8:00 and 16:00-20:00)
+        "day_price": 5e-5   # $/Wh
+    },
+    "min_temp": -15,
+    "max_temp": 30,
+    "today": "variable",
+    "tomorrow": None
+}
 
 sim_properties = {
     "start_time": "2020-01-01 00:00:00",
     "house_properties": house_properties,
+    "grid_properties": grid_properties,
     "max_mean_temp": 25,    # Max mean temperature in Celsius
     "min_mean_temp": -15,   # Min mean temperature in Celsius
     "temp_daily_var": 10,   # Daily temperature variation in Celsius
@@ -48,6 +91,7 @@ class Simulator():
         self.sim_properties = sim_properties
         self.time = self.init_time()
         self.house = self.init_house()
+        self.grid = Grid(self.sim_properties["grid_properties"])
         self.update_ODtemperature()
 
     def init_time(self):
@@ -66,19 +110,27 @@ class Simulator():
         Return: Env current state (dict)
     
         """
-        self.time += datetime.timedelta(seconds=time_step)
+        delta = datetime.timedelta(seconds=time_step)
+        time_plus_12_hours = self.time + datetime.timedelta(hours=12)
+        self.time += delta
+        house_consumption = self.house.get_house_state()["house_consumption"]
         
         self.update_ODtemperature()
 
-        self.house.step(self.OD_temp, datetime.timedelta(seconds=time_step), self.time, action)
+        self.house.step(self.OD_temp, delta, self.time, action)
+
+        temp_in_12_hours = self.compute_ODtemperature(time_plus_12_hours)
+        self.grid.step(temp_in_12_hours, house_consumption, delta, self.time)
 
         env_state = self.get_env_state()
         return env_state
     
     def get_env_state(self):
         house_state = self.house.get_house_state()
+        grid_state = self.grid.get_grid_state()
         env_state = {
             'house_state': house_state,
+            'grid_state': grid_state,
             'time': self.time,
             'OD_temp': self.OD_temp
         }
@@ -99,7 +151,21 @@ class Simulator():
         text += "The total power consumption of the house is {:.2f} kW. \n".format(state['house_state']['house_consumption']/1000)
         
         ## Add here text for grid prices and energy consumption during the last hour and the last day
-        # 
+        today_policy = state['grid_state']['today']
+        text += f"The pricing policy for today is {today_policy}. "
+        tomorrow_policy = state['grid_state']['tomorrow']
+        if state['grid_state']['tomorrow'] is None:
+            text += "The pricing policy for tomorrow has not been published yet. "
+        else:
+            text += f'The pricing policy for tomorrow is {tomorrow_policy}. '
+        price = state['grid_state']['price']
+        text += f'The current energy price is {price * 1e5:.1f} cents per kWh.\n'
+        total_expenses = state['grid_state']['total_expenses']
+        text += f'The total expenses amount to {total_expenses:.2f}$. '
+        day_expenses = state['grid_state']['day_expenses']
+        text += f'The current day expenses amount to {day_expenses:.2f}$. '
+        block_expenses = state['grid_state']['block_expenses']
+        text += f'The current block expenses amount to {block_expenses:.2f}$.\n'
 
         return text
 
@@ -723,14 +789,128 @@ class Grid():
     """
     Grid simulator
     
-    Provides a price signal to the house depending on the time of the day, and the current outdoor temperature
+    Provides a price signal to the house depending on the time of the day, and
+    the current outdoor temperature
     """
 
-    def __init__(self):
-        pass
+    def __init__(self, grid_properties):
+        """
+        Initialize the grid
 
+        Parameters:
 
+        - grid_properties: dictionary, containing the configuration properties
+          of the Grid
+        """
+        self.peak_price = grid_properties["prices"]["peak_price"]
+        self.day_price = grid_properties["prices"]["day_price"]
+        self.min_temp = grid_properties["min_temp"]
+        self.max_temp = grid_properties["max_temp"]
+        self.today = grid_properties["today"]
+        self.tomorrow = grid_properties["tomorrow"]
+        self.current_price = self.day_price
+        self.total_expenses = 0.0
+        self.day_expenses = 0.0
+        self.block_expenses = 0.0
 
+    def step(self, od_temp, power, delta, date_time):
+        """
+        Take a time step for the house
+
+        Parameters:
+
+        - od_temp: float, current outdoors temperature in Celsius
+        - delta: timedelta, time step duration
+        - date_time: datetime, current date and time
+        """
+        self.update_policies(od_temp, delta, date_time)
+        self.update_current_price(delta, date_time)
+        self.update_expenses(power, delta, date_time)
+
+    def update_policies(self, od_temp, delta, date_time):
+        """
+        Update today and tomorrow policies
+
+        Parameters:
+
+        - od_temp: float, current outdoors temperature in Celsius
+        - delta: timedelta, time step duration
+        - date_time: datetime, current date and time
+        """
+        next_datetime = date_time + delta
+        if contains_hour_of_day(date_time, next_datetime, 0):
+            # At 0:00, we start a new day
+            self.today = self.tomorrow
+            self.tomorrow = None
+        elif contains_hour_of_day(date_time, next_datetime, 19):
+            # At 19:00, the next day policy is published
+            is_extreme = lambda t: t < self.min_temp or t > self.max_temp
+            self.tomorrow = "variable" if is_extreme(od_temp) else "fixed"
+
+    def update_current_price(self, delta, date_time):
+        """
+        Update the current price
+
+        Parameters:
+
+        - delta: timedelta, time step duration
+        - date_time: datetime, current date and time
+        """
+        next_datetime = date_time + delta
+        if contains_hour_of_day(date_time, next_datetime, 6) or \
+           contains_hour_of_day(date_time, next_datetime, 16):
+            # At 6:00 and 16:00 we enter a peak block
+            self.current_price = self.peak_price if self.today == "variable" \
+                                                 else self.day_price
+        elif contains_hour_of_day(date_time, next_datetime, 8) or \
+             contains_hour_of_day(date_time, next_datetime, 20):
+            # At 8:00 and 20:00 we exit a peak block
+            self.current_price = self.day_price
+
+    def update_expenses(self, power, delta, date_time):
+        r"""
+        Update the recorded expenses
+        """
+        next_datetime = date_time + delta
+        energy = power * delta.seconds / 3600.0
+        expenses = self.current_price * energy
+        day_expenses = expenses
+        block_expenses = expenses
+
+        self.total_expenses += expenses
+        if contains_hour_of_day(date_time, next_datetime, 0):
+            delta = next_datetime - datetime_from_hour_of_day(next_datetime, 0)
+            energy = power * delta.seconds / 3600.0
+            day_expenses = self.current_price * energy
+            self.day_expenses = 0
+        self.day_expenses += day_expenses
+        def block_hour(date_time, next_datetime):
+            for h in range(0, 24, 2):
+                if contains_hour_of_day(date_time, next_datetime, h):
+                    return h
+            return None
+        h = block_hour(date_time, next_datetime)
+        if h is not None:
+            delta = next_datetime - datetime_from_hour_of_day(next_datetime, h)
+            energy = power * delta.seconds / 3600.0
+            block_expenses = self.current_price * energy
+            self.block_expenses = 0.0
+        self.block_expenses += block_expenses
+
+    def get_grid_state(self):
+        """
+        Return the state of the grid
+
+        Return: dict
+        """
+        return {
+            "today": self.today,
+            "tomorrow": self.tomorrow,
+            "price": self.current_price,
+            "total_expenses": self.total_expenses,
+            "day_expenses": self.day_expenses,
+            "block_expenses": self.block_expenses
+        }
 
 if __name__ == "__main__":
 
@@ -869,7 +1049,7 @@ if __name__ == "__main__":
 
     elif test_type == "test_text":
 
-        sim_properties["start_time"] = "2020-01-02 6:42:00"
+        sim_properties["start_time"] = "2020-01-02 01:48:00"
 
         simulator = Simulator(sim_properties)
 
