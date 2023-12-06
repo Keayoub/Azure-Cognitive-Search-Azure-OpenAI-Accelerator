@@ -64,8 +64,8 @@ class BotServiceCallbackHandler(BaseCallbackHandler):
 
 # Bot Class
 class MyBot(ActivityHandler):
-    
-    simulator:Simulator
+    simulator: Simulator
+
     def __init__(self):
         self.model_name = os.environ.get("AZURE_OPENAI_MODEL_NAME")
 
@@ -134,8 +134,11 @@ class MyBot(ActivityHandler):
         # )
 
         simulator_search = HouseControlTool(
-            llm=llm, callback_manager=cb_manager, return_direct=True, house_simulator=self.simulator)
-        
+            llm=llm,
+            callback_manager=cb_manager,
+            return_direct=True,
+            house_simulator=self.simulator,
+        )
 
         tools = [simulator_search, www_search]
 
