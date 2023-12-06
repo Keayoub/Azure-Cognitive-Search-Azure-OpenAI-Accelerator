@@ -87,6 +87,8 @@ class HouseControlTool(BaseTool):
                 },
             }
             
+            return "Action Executed on the simulator"
+            
             # call function app to execute action
             return
         except Exception as e:
