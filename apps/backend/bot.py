@@ -128,7 +128,7 @@ class MyBot(ActivityHandler):
         www_search = BingSearchTool(
             llm=llm, k=5, callback_manager=cb_manager, return_direct=True
         )
-        # sql_search = SQLDbTool(llm=llm, k=10, callback_manager=cb_manager, return_direct=True)
+        sql_search = SQLDbTool(llm=llm, k=10, callback_manager=cb_manager, return_direct=True)
         # chatgpt_search = ChatGPTTool(
         #     llm=llm, callback_manager=cb_manager, return_direct=True
         # )
