@@ -1,12 +1,13 @@
 import datetime
 import numpy as np
 
+
+
 house_properties = {
-    "start_time": "2020-01-01 00:00:00",
     "init_air_temp": 20,
     "init_mass_temp": 20,
     "target_temp": 20,
-    "tolerance_temp": 0.5,
+    "tolerance_temp": 2,
     "Ua": 2.18e02,  # House walls conductance (W/K). Multiplied by 3 to account for drafts (according to https://dothemath.ucsd.edu/2012/11/this-thermal-house/)
     "Cm": 3.45e06,  # House thermal mass (J/K) (area heat capacity:: 40700 J/K/m2 * area 100 m2)
     "Ca": 9.08e05,  # Air thermal mass in the house (J/K): 3 * (volumetric heat capacity: 1200 J/m3/K, default area 100 m2, default height 2.5 m)
@@ -14,31 +15,38 @@ house_properties = {
     "hvac_properties": {
         "id": "hvac_1",
         "COP": 2.5,
-        "cooling_capacity": 10000,
+        "cooling_capacity": 5000,
         "latent_cooling_fraction": 0.35,
     },
     "heater_properties": {
         "id": "heater_1",
-        "heating_capacity": 15000,
+        "heating_capacity": 10000,
     },
 }
 
 
+sim_properties = {
+    "start_time": "2020-01-01 00:00:00",
+    "house_properties": house_properties,
+    "max_mean_temp": 25,
+    "min_mean_temp": -15,
+    "temp_daily_var": 10,
+}
+
 
 class Simulator():
-    def __init__(self, house_properties):
-        self.house_properties = house_properties
+    def __init__(self, sim_properties):
+        self.sim_properties = sim_properties
         self.time = self.init_time()
         self.house = self.init_house()
         self.update_ODtemperature()
 
     def init_time(self):
-        time = datetime.datetime.strptime(self.house_properties['start_time'], '%Y-%m-%d %H:%M:%S')
+        time = datetime.datetime.strptime(self.sim_properties['start_time'], '%Y-%m-%d %H:%M:%S')
         return time
 
-
     def init_house(self):
-        house = House(self.house_properties)
+        house = House(self.sim_properties["house_properties"])
         return house
 
     def step(self, action, time_step):
@@ -49,13 +57,13 @@ class Simulator():
         Return: Env current state (dict)
     
         """
-        target_temp_change = action['target_temp_change']           # None if no change, otherwise, value in Celsius
         self.time += datetime.timedelta(seconds=time_step)
         
         self.update_ODtemperature()
 
+        target_temp_command = action['target_temp_command']           # None if no command, otherwise, value in Celsius
 
-        self.house.step(self.OD_temp, datetime.timedelta(seconds=time_step), self.time, target_temp_change)
+        self.house.step(self.OD_temp, datetime.timedelta(seconds=time_step), self.time, target_temp_command)
 
         env_state = self.get_env_state()
         return env_state
@@ -71,17 +79,29 @@ class Simulator():
         return env_state
 
     def update_ODtemperature(self):
-        """
-        Computes the outdoors temperature based on the time (sinusoidal function on the day of the year based on Montreal means - -9.7 C in Jan, 21.2 in July), + sinusoidal function on the hour of the day (+- 7.5 C day vs night)  --> extremes = -17.2 C in Jan at night, 28.7 C in July at noon
-        """
-        day_of_year = self.time.timetuple().tm_yday  # returns 1 for January 1st
-        hour_of_day = self.time.hour
-        
-        mean_temp = -np.cos(day_of_year/365 * 2*np.pi) * (21.2 + 9.7)/2 + (21.2 - 9.7)/2
+        self.OD_temp = self.compute_ODtemperature(self.time)
 
-        self.OD_temp = mean_temp + np.cos((hour_of_day)/24 * 2*np.pi + np.pi) * 15/2
+    def compute_ODtemperature(self, time):    
+        """
+        Computes the outdoors temperature based on the time (sinusoidal function on the day of the year (coldest Jan 1st, hottest in July 1st), + sinusoidal function on the hour of the day (coldest at 12am, hottest at 12pm)  --> extremes = coldest on Jan 1st at night, hottest on July 1st at noon
+        """
+        day_of_year = time.timetuple().tm_yday  # returns 1 for January 1st, 365 or 366 for December 31st
+        hour_of_day = time.hour
+
+        max_mean = self.sim_properties['max_mean_temp']
+        min_mean = self.sim_properties['min_mean_temp']
+        temp_daily_var = self.sim_properties['temp_daily_var']
         
+        mean_temp = -np.cos(day_of_year/365 * 2*np.pi) * (max_mean - min_mean)/2 + (max_mean + min_mean)/2
+
+        OD_temp = mean_temp + np.cos((hour_of_day)/24 * 2*np.pi + np.pi) * temp_daily_var/2
+
+        return OD_temp
         
+
+
+######### House #########
+
 
 class House():
     """
@@ -144,7 +164,7 @@ class House():
         self.heater = Heater(self.heater_properties)
 
 
-    def step(self, od_temp, time_step, date_time, target_temp_change):
+    def step(self, od_temp, time_step, date_time, target_temp_command):
         """
         Take a time step for the house
 
@@ -155,13 +175,13 @@ class House():
         od_temp: float, current outdoors temperature in Celsius
         time_step: timedelta, time step duration
         date_time: datetime, current date and time
-        target_temp_change: float to the new target temperature, None if not necessary to change
+        target_temp_command: float to the new target temperature, None if not necessary to command
         """
 
         self.update_temperature(od_temp, time_step, date_time)
 
-        if target_temp_change:
-            self.target_temp = target_temp_change
+        if target_temp_command:
+            self.target_temp = target_temp_command
 
         self.hvac.step(self.target_temp, self.tolerance_temp, self.current_temp)
         self.heater.step(self.target_temp, self.tolerance_temp, self.current_temp)
@@ -253,6 +273,7 @@ class House():
         self.current_mass_temp = new_current_mass_temp_K - 273
 
 
+######### Devices #########
 
 class AbstractDevice(object):
     """
@@ -283,9 +304,7 @@ class HVAC(AbstractDevice):
     COP: float, coefficient of performance (ratio between cooling capacity and electric power consumption)
     cooling_capacity: float, rate of "negative" heat transfer produced by the HVAC, in Watts
     latent_cooling_fraction: float between 0 and 1, fraction of sensible cooling (temperature) which is latent cooling (humidity)
-    lockout_duration: int, duration of lockout (hardware constraint preventing to turn on the HVAC for some time after turning off), in seconds
     turned_on: bool, if the HVAC is currently ON (True) or OFF (False)
-    seconds_since_off: int, number of seconds since the HVAC was last turned off
     time_step: a timedelta object, representing the time step for the simulation.
 
 
@@ -478,28 +497,21 @@ class Heater(AbstractDevice):
 
 if __name__ == "__main__":
 
-    house_properties["start_time"] = "2020-07-01 12:00:00"
-    simulator = Simulator(house_properties)
+    sim_properties["start_time"] = "2020-0-01 6:00:00"
 
-    time = datetime.datetime.strptime(house_properties['start_time'], '%Y-%m-%d %H:%M:%S')
-    day_of_year = float(time.timetuple().tm_yday)  # returns 1 for January 1st
-    mean_temp = -np.cos(day_of_year/365 * 2*np.pi) * (21.2 + 9.7)/2 + (21.2 - 9.7)/2
+    simulator = Simulator(sim_properties)
 
-    print(day_of_year)
-    print(mean_temp)
-
-    print(simulator.get_env_state())
 
     action = {
-        'target_temp_change': 22
+        'target_temp_command': None
     }
 
-    simulator.step(action, 60)
-    print(simulator.get_env_state())
+    for i in range(60*28):
+        simulator.step(action, 60)
+        env_state = simulator.get_env_state()
+        if i % 2 == 0:
+            print("Time: {}, Current temp: {:.2f} C, OD temp: {:.2f} C, Consumption: {:.2f} W, HVAC: {}, Heater: {}".format(env_state['time'], env_state['house_state']['current_temp'], env_state['OD_temp'], env_state['house_state']['consumption'], env_state['house_state']['hvac'], env_state['house_state']['heater'])) 
 
-    action = {
-        'target_temp_change': None
-    }
 
-    simulator.step(action, 60*60*2)
-    print(simulator.get_env_state())
+
+
