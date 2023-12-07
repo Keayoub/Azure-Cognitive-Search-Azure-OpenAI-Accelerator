@@ -75,7 +75,7 @@ class HouseControlTool(BaseTool):
             parser = PydanticOutputParser(pydantic_object=Action)
             action = parser.parse(response_action)
 
-            if response_action == None:
+            if response_action is None:
                 return "No Results Found"
 
             house_action = {
@@ -86,11 +86,12 @@ class HouseControlTool(BaseTool):
                     "autonomy_objective": response_action["target_autonomy_command"],
                 },
             }
-            
-            return "Action Executed on the simulator"
-            
-            # call function app to execute action
-            return
+            result = call_api(
+                os.environ.get("SIMULATOR_API_URL") + "/api/execute_action",
+                house_action
+            )
+            return result
+
         except Exception as e:
             print(e)
 
@@ -134,3 +135,21 @@ class HouseControlStatus(BaseTool):
 class Action(BaseModel):
     target_temp_command: str
     target_autonomy_command: str
+
+
+def call_api(url, action):
+    try:
+        # call api from python code to execute the action
+        headers = {"Content-Type": "application/json"}        
+        params = {
+            "code": "Uk-7XrFnJDIBMbHBRP9UJmOky4CEAoHNpQJ_WuT1ZthZAzFuYU9zSw==",
+            "clientId": "default",
+        }
+        if action is None:
+            response = requests.get(url, headers=headers, params=params, timeout=10)  # noqa: E501
+        else:
+            response = requests.post(url, headers=headers, params=params, json=action, timeout=10)  # noqa: E501
+        
+        return response.text
+    except Exception:  # noqa: E722
+        return "Error in calling API"

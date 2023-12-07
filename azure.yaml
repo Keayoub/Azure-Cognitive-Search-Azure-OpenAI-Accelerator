@@ -75,3 +75,19 @@ services:
           run: 'Remove-Item * -Recurse; Copy-Item -Path "../../../apps/frontend/*" -Destination "./" -Recurse -Force; Copy-Item -Path "../../../common/*" -Destination "./" -Recurse -force;pip install -r requirements.txt'
           interactive: true
           continueOnError: false      
+  api:
+    project: ./apps/simulator
+    language: py
+    host: function
+    hooks:
+      prepackage:
+        windows:
+          shell: pwsh
+          run: pip install -r requirements.txt
+          interactive: true
+          continueOnError: false
+        posix:
+          shell: sh
+          run: pipinstall-rrequirements.txt
+          interactive: true
+          continueOnError: false     

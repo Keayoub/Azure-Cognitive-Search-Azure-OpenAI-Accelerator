@@ -673,9 +673,7 @@ class ChatGPTTool(BaseTool):
             
     async def _arun(self, query: str) -> str:
         """Use the tool asynchronously."""
-        raise NotImplementedError("ChatGPTTool does not support async")
-        
-    
+        raise NotImplementedError("ChatGPTTool does not support async")            
     
 class BingSearchResults(BaseTool):
     """Tool for a Bing Search Wrapper"""
