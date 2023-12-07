@@ -82,7 +82,7 @@ COMBINE_PROMPT = PromptTemplate(
 WELCOME_MESSAGE = """
 Hello and welcome! \U0001F44B
 
-My name is Jarvis, a smart virtual assistant designed to assist you.
+My name is JARVIS, a smart virtual assistant designed to assist you.
 Here's how you can interact with me:
 
 I have various plugins and tools at my disposal to answer your questions effectively. Here are the available options:
@@ -90,7 +90,7 @@ I have various plugins and tools at my disposal to answer your questions effecti
 To make the most of my capabilities, please mention the specific tool you'd like me to use when asking your question. Here's an example:
 
 Feel free to ask any question and specify the tool you'd like me to utilize. I'm here to assist you!
----
+
 """
 
 
@@ -617,14 +617,15 @@ Chat History:
  
 HUMAN: {question}
 =========
-Current State of the House and Power Grid
+Current State of the House and Power Grid {current_state}
 =========
 AI:
 """
 )
 
 HOUSECONTROL_PROMPT = PromptTemplate(
-    input_variables=["chat_history", "question"], template=HOUSECONTROL_PROMPT_TEMPLATE
+    input_variables=["chat_history", "question", "current_state"],
+    template=HOUSECONTROL_PROMPT_TEMPLATE,
 )
 
 

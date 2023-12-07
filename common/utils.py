@@ -888,13 +888,20 @@ class HouseControlTool(BaseTool):
         try:
             tools = [HouseControlResults()]
 
+            current_state = call_api(
+                os.environ.get("SIMULATOR_API_URL") + "/api/get_env_status"
+            )
+
             parsed_input = self._parse_input(tool_input)
 
             agent_executor = initialize_agent(
                 tools=tools,
                 llm=self.llm,
                 agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-                agent_kwargs={"prompt": HOUSECONTROL_PROMPT},
+                agent_kwargs={
+                    "prompt": HOUSECONTROL_PROMPT,
+                    "curent_state": current_state,
+                },
                 callback_manager=self.callbacks,
                 verbose=self.verbose,
                 handle_parsing_errors=True,
@@ -920,7 +927,7 @@ class HouseControlTool(BaseTool):
                     "autonomy_objective": int(response["target_autonomy_command"]),
                 },
             }
-            result = self.call_api(
+            result = call_api(
                 os.environ.get("SIMULATOR_API_URL") + "/api/execute_action",
                 house_action,
             )
@@ -942,7 +949,7 @@ class HouseControlResults(BaseTool):
 
     def _run(self, query: str) -> str:
         try:
-            return self.call_api(
+            return call_api(
                 os.environ.get("SIMULATOR_API_URL") + "/api/get_env_status"
             )
         except:
