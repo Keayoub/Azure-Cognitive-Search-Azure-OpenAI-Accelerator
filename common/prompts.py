@@ -598,14 +598,14 @@ Given the following:
 Instructions:
 - You must answer in a JSON string format following one of the two specific formats mentioned below:
     If you want to ask the Human for more information, you must answer in the following format:
-    {
-        'information_needed' : <information_needed>, # string, the information you need from the Human
-    }
+    {{
+        'information_needed' : 'some text', # string, the information you need from the Human 
+    }}
     If you want to take an action, you must answer in the following format:
-    {
-        'target_temp_command' : <target_temp_command>, # float, target temperature setpoint in °C
-        'target_autonomy_command' : <target_autonomy_command>, # float, target autonomy objective in km
-    }
+    {{
+       'target_temp_command' : 'some text', # float, target temperature setpoint in °C
+       'target_autonomy_command' : 'some text', # float, target autonomy objective in km
+    }}
     If you do not want to change the target temperature or the autonomy objective, you can write None instead of a float.
  
 - Do not answer anything before or after the JSON string.
@@ -624,8 +624,7 @@ AI:
 )
 
 HOUSECONTROL_PROMPT = PromptTemplate(
-    input_variables=["chat_history", "question"],
-    template=HOUSECONTROL_PROMPT_TEMPLATE,
+    input_variables=["chat_history", "question"], template=HOUSECONTROL_PROMPT_TEMPLATE
 )
 
 
