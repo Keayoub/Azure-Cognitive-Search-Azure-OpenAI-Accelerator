@@ -75,6 +75,29 @@ def change_hvac(req: func.HttpRequest) -> func.HttpResponse:
         )
 
 
+@app.route(route="run_for_time")
+def run_for_time(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info("run_for_time the simulator.")
+
+    minute = req.params.get("minute")
+    if not minute:
+        try:
+            req_body = req.get_json()
+        except ValueError:
+            pass
+        else:
+            minute = req_body.get("minute")
+    if minute is not None:
+        grid_simulator.run_for_time(int(minute))
+        current_state = grid_simulator.get_env_state_in_natural_language()
+        return func.HttpResponse(f"Simulator ran for {minute} minutes. {current_state}")
+    else:
+        return func.HttpResponse(
+            "This HTTP triggered function executed successfully. Pass a temperature in the query string or in the request body.",
+            status_code=200,
+        )
+
+
 @app.route(route="get_env_status")
 def get_env_status(req: func.HttpRequest) -> func.HttpResponse:
     logging.info("get_env_status function processed a request.")

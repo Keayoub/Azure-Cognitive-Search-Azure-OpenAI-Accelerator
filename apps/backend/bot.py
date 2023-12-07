@@ -21,15 +21,19 @@ from utils import (
     CSVTabularTool,
     SQLDbTool,
     ChatGPTTool,
+    HouseControlTool,
     BingSearchTool,
     run_agent,
 )
-from prompts import WELCOME_MESSAGE, CUSTOM_CHATBOT_PREFIX, CUSTOM_CHATBOT_SUFFIX
-
-from hackAgents import SimulatorTool
+from prompts import (
+    WELCOME_MESSAGE,
+    CUSTOM_CHATBOT_PREFIX,
+    CUSTOM_CHATBOT_SUFFIX,
+    HOUSE_CHATBOT_PROMPT_PREFIX,
+)
 from botbuilder.core import ActivityHandler, TurnContext
 from botbuilder.schema import ChannelAccount, Activity, ActivityTypes
-from env import Simulator
+
 
 # Env variables needed by langchain
 os.environ["OPENAI_API_BASE"] = os.environ.get("AZURE_OPENAI_ENDPOINT")
@@ -63,8 +67,7 @@ class BotServiceCallbackHandler(BaseCallbackHandler):
 
 
 # Bot Class
-class MyBot(ActivityHandler):   
-
+class MyBot(ActivityHandler):
     def __init__(self):
         self.model_name = os.environ.get("AZURE_OPENAI_MODEL_NAME")
 
@@ -127,15 +130,13 @@ class MyBot(ActivityHandler):
         www_search = BingSearchTool(
             llm=llm, k=5, callback_manager=cb_manager, return_direct=True
         )
-        #sql_search = SQLDbTool(llm=llm, k=10, callback_manager=cb_manager, return_direct=True)
+        # sql_search = SQLDbTool(llm=llm, k=10, callback_manager=cb_manager, return_direct=True)
         # chatgpt_search = ChatGPTTool(
         #     llm=llm, callback_manager=cb_manager, return_direct=True
         # )
 
         simulator_search = HouseControlTool(
-            llm=llm,
-            callback_manager=cb_manager,
-            return_direct=True            
+            llm=llm, callback_manager=cb_manager, return_direct=True
         )
 
         tools = [simulator_search, www_search]
@@ -156,8 +157,8 @@ class MyBot(ActivityHandler):
         agent = ConversationalChatAgent.from_llm_and_tools(
             llm=llm,
             tools=tools,
-            system_message=CUSTOM_CHATBOT_PREFIX,
-            human_message=CUSTOM_CHATBOT_SUFFIX,
+            system_message=HOUSE_CHATBOT_PROMPT_PREFIX,
+            human_message=HOUSE_CHATBOT_PROMPT_PREFIX,
         )
         agent_chain = AgentExecutor.from_agent_and_tools(
             agent=agent, tools=tools, memory=memory, handle_parsing_errors=True

@@ -18,7 +18,6 @@ from botbuilder.schema import Activity, ActivityTypes
 
 from bot import MyBot
 from config import DefaultConfig
-from env import Simulator, sim_properties
 
 CONFIG = DefaultConfig()
 
@@ -58,10 +57,9 @@ async def on_error(context: TurnContext, error: Exception):
 
 ADAPTER.on_turn_error = on_error
 
-house_simulato = Simulator(sim_properties)
 
 # Create the Bot
-BOT = MyBot(simulator=house_simulato)
+BOT = MyBot()
 
 
 # Listen for incoming requests on /api/messages

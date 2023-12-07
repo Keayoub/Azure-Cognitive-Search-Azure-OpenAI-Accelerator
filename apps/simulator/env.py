@@ -225,9 +225,17 @@ class Simulator():
 
         return OD_temp
 
-    def execute_action(self, action :dict):
-        self.step(self, datetime.timedelta(seconds=1), self.time, action)
-
+    async def run_for_time(self, minute:int):
+        action = {
+            'target_temp_command': None,
+            'EV_action': {
+                'plug_action': None,
+                'endtrip_autonomy': None,
+                'autonomy_objective': None
+            }
+        }            
+        for i in range(minute):
+            self.step(action, 60)                            
 
 ######### House #########
 
