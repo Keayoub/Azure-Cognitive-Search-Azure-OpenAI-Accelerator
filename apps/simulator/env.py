@@ -225,7 +225,7 @@ class Simulator():
 
         return OD_temp
 
-    async def run_for_time(self, minute:int):
+    def run_for_time(self, minute:int):
         action = {
             'target_temp_command': None,
             'EV_action': {

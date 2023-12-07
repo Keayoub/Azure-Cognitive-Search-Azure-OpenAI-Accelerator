@@ -62,6 +62,7 @@ try:
         DOCSEARCH_PROMPT_PREFIX,
         HOUSECONTROL_PROMPT_PREFIX,
         HOUSE_CHATBOT_PROMPT_PREFIX,
+        HOUSECONTROL_PROMPT,
     )
 except Exception as e:
     print(e)
@@ -79,6 +80,7 @@ except Exception as e:
         DOCSEARCH_PROMPT_PREFIX,
         HOUSECONTROL_PROMPT_PREFIX,
         HOUSE_CHATBOT_PROMPT_PREFIX,
+        HOUSECONTROL_PROMPT,
     )
 
 
@@ -904,26 +906,25 @@ class HouseControlTool(BaseTool):
         try:
             chat_chain = LLMChain(
                 llm=self.llm,
-                prompt=HOUSECONTROL_PROMPT_PREFIX,
+                prompt=HOUSECONTROL_PROMPT,
                 callback_manager=self.callbacks,
                 verbose=self.verbose,
             )
 
-            response_action = chat_chain.run(query)
-
+            response = chat_chain.run(query)
             # executer action
-            parser = PydanticOutputParser(pydantic_object=Action)
-            action = parser.parse(response_action)
+            # parser = PydanticOutputParser(pydantic_object=Action)
+            # action = parser.parse(response)
 
-            if response_action is None:
+            if response is None:
                 return "No Results Found"
 
             house_action = {
-                "target_temp_command": response_action["target_temp_command"],
+                "target_temp_command": response["target_temp_command"],
                 "EV_action": {
                     "plug_action": None,
                     "endtrip_autonomy": None,
-                    "autonomy_objective": response_action["target_autonomy_command"],
+                    "autonomy_objective": response["target_autonomy_command"],
                 },
             }
             result = self.call_api(
@@ -933,43 +934,30 @@ class HouseControlTool(BaseTool):
             return result
 
         except Exception as e:
-            return "Exeception :" + str(e)
+            return "Exeception In HouseControlTool :" + str(e)
 
     async def _arun(self, query: str) -> str:
         """Use the tool asynchronously."""
         raise NotImplementedError("HouseControl Tool does not support async")
 
 
-class HouseControlAction(BaseTool):
-    name = "@housecontrol"
-    description = "useful when the questions includes the term: @housecontrol.\n"
-
-    def _run(self, query: str) -> str:
-        try:
-            return ""
-        except:
-            return "No Results Found"
-
-    async def _arun(self, query: str) -> str:
-        """Use the tool asynchronously."""
-        raise NotImplementedError("HouseControl Tool does not support async")
-
-
-class HouseControlStatus(BaseTool):
-    """Tool for a House Control Wrapper"""
+class HouseControlResults(BaseTool):
+    """Tool for a House Control  Wrapper"""
 
     name = "@housecontrol"
     description = "useful when the questions includes the term: @housecontrol.\n"
 
     def _run(self, query: str) -> str:
         try:
-            return """The current state of the house is:"""
+            return self.call_api(
+                os.environ.get("SIMULATOR_API_URL") + "/api/get_env_status"
+            )
         except:
             return "No Results Found"
 
     async def _arun(self, query: str) -> str:
         """Use the tool asynchronously."""
-        raise NotImplementedError("HouseControl Tool does not support async")
+        raise NotImplementedError("BingSearchResults does not support async")
 
 
 class Action(BaseModel):

@@ -572,7 +572,7 @@ CUSTOM_AGENT_PREFIX = """
 """
 
 
-HOUSECONTROL_PROMPT_PREFIX = (
+HOUSECONTROL_PROMPT_TEMPLATE = (
     CUSTOM_AGENT_PREFIX
     + """
 You are an agent designed to assist a Human with the management of energy consumption in a house. Your objective is multiple:
@@ -622,6 +622,12 @@ Current State of the House and Power Grid: {current_state}
 AI:
 """
 )
+
+HOUSECONTROL_PROMPT = PromptTemplate(
+    template=HOUSECONTROL_PROMPT_TEMPLATE,
+    input_variables=["current_state", "question", "chat_history"],
+)
+
 
 HOUSE_CHATBOT_PROMPT_PREFIX = (
     CUSTOM_CHATBOT_PREFIX
@@ -702,7 +708,8 @@ Chat History:
  
 {chat_history}
  
-HUMAN: {question}
+HUMAN: {
+}
 =========
 Action taken by the agent: {action}
 =========

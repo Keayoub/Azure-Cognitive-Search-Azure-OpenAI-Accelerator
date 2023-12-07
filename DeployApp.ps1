@@ -10,13 +10,13 @@ cd ../frontend
 zip -r ../frontend.zip ./*
 # Return to target folder
 cd ..
-az webapp deployment source config-zip --resource-group "rg-oaixoalab04-uq5k6hqnso4yc" --name "webApp-Backend-BotId-sjfiuqfabeg52" --src "backend.zip"
-az webapp deployment source config-zip --resource-group "rg-oaixoalab04-uq5k6hqnso4yc" --name "webApp-Frontend-sjfiuqfabeg52" --src "frontend.zip"
+#az webapp deployment source config-zip --resource-group "rg-oaixoalab04-uq5k6hqnso4yc" --name "webApp-Backend-BotId-sjfiuqfabeg52" --src "backend.zip"
+#az webapp deployment source config-zip --resource-group "rg-oaixoalab04-uq5k6hqnso4yc" --name "webApp-Frontend-sjfiuqfabeg52" --src "frontend.zip"
 # Return to root folder
 cd ../..
 
 #deploy function app from /apps/simulator
 cd ./apps/simulator
-func azure functionapp publish "funcApp-Simulator-sjfiuqfabeg52" --python
+#func azure functionapp publish "//TODO: Change function name" --python
 # Return to root folder
 cd ../..

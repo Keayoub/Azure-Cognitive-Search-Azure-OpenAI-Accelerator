@@ -157,8 +157,8 @@ class MyBot(ActivityHandler):
         agent = ConversationalChatAgent.from_llm_and_tools(
             llm=llm,
             tools=tools,
-            system_message=HOUSE_CHATBOT_PROMPT_PREFIX,
-            human_message=HOUSE_CHATBOT_PROMPT_PREFIX,
+            system_message=CUSTOM_CHATBOT_PREFIX,
+            human_message=CUSTOM_CHATBOT_SUFFIX,
         )
         agent_chain = AgentExecutor.from_agent_and_tools(
             agent=agent, tools=tools, memory=memory, handle_parsing_errors=True
