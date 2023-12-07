@@ -617,15 +617,15 @@ Chat History:
  
 HUMAN: {question}
 =========
-Current State of the House and Power Grid: {current_state}
+Current State of the House and Power Grid
 =========
 AI:
 """
 )
 
 HOUSECONTROL_PROMPT = PromptTemplate(
+    input_variables=["chat_history", "question"],
     template=HOUSECONTROL_PROMPT_TEMPLATE,
-    input_variables=["current_state", "question", "chat_history"],
 )
 
 

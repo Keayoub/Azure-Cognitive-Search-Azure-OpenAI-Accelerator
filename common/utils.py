@@ -47,41 +47,20 @@ from langchain.callbacks.base import BaseCallbackManager
 from langchain.output_parsers import PydanticOutputParser
 from langchain.pydantic_v1 import BaseModel
 
-try:
-    from .prompts import (
-        COMBINE_QUESTION_PROMPT,
-        COMBINE_PROMPT,
-        COMBINE_CHAT_PROMPT,
-        CSV_PROMPT_PREFIX,
-        CSV_PROMPT_SUFFIX,
-        MSSQL_PROMPT,
-        MSSQL_AGENT_PREFIX,
-        MSSQL_AGENT_FORMAT_INSTRUCTIONS,
-        CHATGPT_PROMPT,
-        BING_PROMPT_PREFIX,
-        DOCSEARCH_PROMPT_PREFIX,
-        HOUSECONTROL_PROMPT_PREFIX,
-        HOUSE_CHATBOT_PROMPT_PREFIX,
-        HOUSECONTROL_PROMPT,
-    )
-except Exception as e:
-    print(e)
-    from prompts import (
-        COMBINE_QUESTION_PROMPT,
-        COMBINE_PROMPT,
-        COMBINE_CHAT_PROMPT,
-        CSV_PROMPT_PREFIX,
-        CSV_PROMPT_SUFFIX,
-        MSSQL_PROMPT,
-        MSSQL_AGENT_PREFIX,
-        MSSQL_AGENT_FORMAT_INSTRUCTIONS,
-        CHATGPT_PROMPT,
-        BING_PROMPT_PREFIX,
-        DOCSEARCH_PROMPT_PREFIX,
-        HOUSECONTROL_PROMPT_PREFIX,
-        HOUSE_CHATBOT_PROMPT_PREFIX,
-        HOUSECONTROL_PROMPT,
-    )
+from prompts import (
+    COMBINE_QUESTION_PROMPT,
+    COMBINE_PROMPT,
+    COMBINE_CHAT_PROMPT,
+    CSV_PROMPT_PREFIX,
+    CSV_PROMPT_SUFFIX,
+    MSSQL_PROMPT,
+    MSSQL_AGENT_PREFIX,
+    MSSQL_AGENT_FORMAT_INSTRUCTIONS,
+    CHATGPT_PROMPT,
+    BING_PROMPT_PREFIX,
+    DOCSEARCH_PROMPT_PREFIX,    
+    HOUSECONTROL_PROMPT,
+)
 
 
 def text_to_base64(text):
@@ -902,19 +881,32 @@ class HouseControlTool(BaseTool):
 
     llm: AzureChatOpenAI
 
-    def _run(self, query: str) -> str:
+    def _run(
+        self,
+        tool_input: Union[str, Dict],
+    ) -> str:
         try:
-            chat_chain = LLMChain(
+            tools = [HouseControlResults()]
+
+            parsed_input = self._parse_input(tool_input)
+
+            agent_executor = initialize_agent(
+                tools=tools,
                 llm=self.llm,
-                prompt=HOUSECONTROL_PROMPT,
+                agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+                agent_kwargs={"prompt": HOUSECONTROL_PROMPT},
                 callback_manager=self.callbacks,
                 verbose=self.verbose,
+                handle_parsing_errors=True,
             )
 
-            response = chat_chain.run(query)
-            # executer action
-            # parser = PydanticOutputParser(pydantic_object=Action)
-            # action = parser.parse(response)
+            for i in range(2):
+                try:
+                    response = run_agent(parsed_input, agent_executor)
+                    break
+                except Exception as e:
+                    response = str(e)
+                    continue
 
             if response is None:
                 return "No Results Found"
