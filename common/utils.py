@@ -58,7 +58,7 @@ from prompts import (
     MSSQL_AGENT_FORMAT_INSTRUCTIONS,
     CHATGPT_PROMPT,
     BING_PROMPT_PREFIX,
-    DOCSEARCH_PROMPT_PREFIX,    
+    DOCSEARCH_PROMPT_PREFIX,
     HOUSECONTROL_PROMPT,
 )
 
@@ -911,12 +911,13 @@ class HouseControlTool(BaseTool):
             if response is None:
                 return "No Results Found"
 
+            print(parsed_input)
             house_action = {
-                "target_temp_command": response["target_temp_command"],
+                "target_temp_command": int(response["target_temp_command"]),
                 "EV_action": {
                     "plug_action": None,
                     "endtrip_autonomy": None,
-                    "autonomy_objective": response["target_autonomy_command"],
+                    "autonomy_objective": int(response["target_autonomy_command"]),
                 },
             }
             result = self.call_api(
