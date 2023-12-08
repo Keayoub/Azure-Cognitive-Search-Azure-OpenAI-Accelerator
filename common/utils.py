@@ -889,8 +889,7 @@ class HouseControlTool(BaseTool):
             tools = [HouseControlResults()]
 
             current_state = call_api(
-                os.environ.get("SIMULATOR_API_URL") + "/api/get_env_status"
-            )
+                os.environ.get("SIMULATOR_API_URL") + "/api/get_env_status")
 
             parsed_input = self._parse_input(tool_input)
 
@@ -907,31 +906,25 @@ class HouseControlTool(BaseTool):
                 handle_parsing_errors=True,
             )
 
-            for i in range(2):
-                try:
-                    response = run_agent(parsed_input, agent_executor)
-                    break
-                except Exception as e:
-                    response = str(e)
-                    continue
+            response = run_agent(parsed_input, agent_executor)
+            
+            # if response is None:
+            #     return "No Results Found"
 
-            if response is None:
-                return "No Results Found"
-
-            print(parsed_input)
-            house_action = {
-                "target_temp_command": int(response["target_temp_command"]),
-                "EV_action": {
-                    "plug_action": None,
-                    "endtrip_autonomy": None,
-                    "autonomy_objective": int(response["target_autonomy_command"]),
-                },
-            }
-            result = call_api(
-                os.environ.get("SIMULATOR_API_URL") + "/api/execute_action",
-                house_action,
-            )
-            return result
+            # print(parsed_input)
+            # house_action = {
+            #     "target_temp_command": int(response["target_temp_command"]),
+            #     "EV_action": {
+            #         "plug_action": None,
+            #         "endtrip_autonomy": None,
+            #         "autonomy_objective": int(response["target_autonomy_command"]),
+            #     },
+            # }
+            # result = call_api(
+            #     os.environ.get("SIMULATOR_API_URL") + "/api/execute_action",
+            #     house_action,
+            # )
+            return response
 
         except Exception as e:
             return "Exeception In HouseControlTool :" + str(e)
@@ -939,7 +932,18 @@ class HouseControlTool(BaseTool):
     async def _arun(self, query: str) -> str:
         """Use the tool asynchronously."""
         raise NotImplementedError("HouseControl Tool does not support async")
-
+    
+    def increase_temperature(self, query: str) -> str:
+        """Use the tool asynchronously."""
+        return "temperature increased successfully"  
+    def decrease_temperature(self, query: str) -> str:
+        """Use the tool asynchronously."""
+        return "temperature decreased successfully"
+    def get_status(self, query: str) -> str:
+        """Use the tool asynchronously."""
+        return call_api(os.environ.get("SIMULATOR_API_URL") + "/api/get_env_status")
+    
+      
 
 class HouseControlResults(BaseTool):
     """Tool for a House Control  Wrapper"""
@@ -966,7 +970,7 @@ class Action(BaseModel):
 
 
 ### Utils functions for House Control
-def call_api(url, action):
+def call_api(url, action: Optional[str] = None):
     try:
         # call api from python code to execute the action
         headers = {"Content-Type": "application/json"}
