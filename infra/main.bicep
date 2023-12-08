@@ -51,6 +51,7 @@ param chatGptModelVersion string = '0613'
 param embeddingDeploymentName string = '' // Set in main.parameters.json
 param embeddingDeploymentCapacity int = 30
 param embeddingModelName string = 'text-embedding-ada-002'
+param functionAppName string = '' // Set in main.parameters.json
 
 @allowed([ 'azure', 'openai' ])
 param openAiHost string // Set in main.parameters.json
@@ -191,6 +192,23 @@ module frontend '../apps/frontend/azuredeploy-frontend.bicep' = {
     infra
     backend
   ]
+}
+
+
+// the function app api
+module simulatorapi 'app/api.bicep' = {
+  name: 'simulatorapi'
+  scope: rg
+  params: {
+    name: !empty(functionAppName) ? functionAppName : 'simulator-${resourceToken}'
+    tags: tags    
+    appServicePlanId: backend.outputs.appServicePlanId
+    location: location
+    storageAccountName: infra.outputs.blobStorageAccountName
+    allowedOrigins: [ backend.outputs.webAppUrl ]
+    appSettings: {
+    }
+  }
 }
 
 // Outputs are automatically saved in the local azd environment .env file.

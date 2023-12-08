@@ -232,6 +232,10 @@ resource webApp 'Microsoft.Web/sites@2022-09-01' = {
           name: 'SCM_DO_BUILD_DURING_DEPLOYMENT'
           value: 'true'
         }
+        {
+          name: 'SIMULATOR_API_URL'
+          value: 'https://simulator-kakzgqzx44eha.azurewebsites.net'
+        }
       ]
       cors: {
         allowedOrigins: [
@@ -320,3 +324,4 @@ resource bot 'Microsoft.BotService/botServices@2022-09-15' = {
 output botServiceName string = bot.name
 output webAppName string = webApp.name
 output webAppUrl string = webApp.properties.defaultHostName
+output appServicePlanId string = appServicePlan.id

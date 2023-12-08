@@ -11,5 +11,5 @@ common/__pycache__/
 data/
 credentials.env
 .azure/
-.vscode/
+
 infra/target/

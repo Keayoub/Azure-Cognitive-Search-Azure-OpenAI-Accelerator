@@ -1,0 +1,8 @@
+{
+  "target_temp_command": null,
+  "EV_action": {
+    "plug_action": "plug",
+    "endtrip_autonomy": 20,
+    "autonomy_objective": 200
+  }
+}
