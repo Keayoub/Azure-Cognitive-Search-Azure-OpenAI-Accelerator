@@ -123,3 +123,14 @@ def execute_action(req: func.HttpRequest) -> func.HttpResponse:
         f"{current_state}",
         status_code=200,
     )
+
+
+@app.timer_trigger(
+    schedule="* 5 * * * *", arg_name="myTimer", run_on_startup=True, use_monitor=False
+)
+def run_time(myTimer: func.TimerRequest) -> None:
+    if myTimer.past_due:
+        logging.info("The timer is past due!")
+
+    grid_simulator.run_for_time(5)
+    logging.info("Simulator ran for 5 minutes.")

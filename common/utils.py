@@ -889,7 +889,8 @@ class HouseControlTool(BaseTool):
             tools = [HouseControlResults()]
 
             current_state = call_api(
-                os.environ.get("SIMULATOR_API_URL") + "/api/get_env_status")
+                os.environ.get("SIMULATOR_API_URL") + "/api/get_env_status"
+            )
 
             parsed_input = self._parse_input(tool_input)
 
@@ -907,7 +908,7 @@ class HouseControlTool(BaseTool):
             )
 
             response = run_agent(parsed_input, agent_executor)
-            
+
             # if response is None:
             #     return "No Results Found"
 
@@ -932,18 +933,7 @@ class HouseControlTool(BaseTool):
     async def _arun(self, query: str) -> str:
         """Use the tool asynchronously."""
         raise NotImplementedError("HouseControl Tool does not support async")
-    
-    def increase_temperature(self, query: str) -> str:
-        """Use the tool asynchronously."""
-        return "temperature increased successfully"  
-    def decrease_temperature(self, query: str) -> str:
-        """Use the tool asynchronously."""
-        return "temperature decreased successfully"
-    def get_status(self, query: str) -> str:
-        """Use the tool asynchronously."""
-        return call_api(os.environ.get("SIMULATOR_API_URL") + "/api/get_env_status")
-    
-      
+
 
 class HouseControlResults(BaseTool):
     """Tool for a House Control  Wrapper"""
@@ -953,15 +943,28 @@ class HouseControlResults(BaseTool):
 
     def _run(self, query: str) -> str:
         try:
-            return call_api(
-                os.environ.get("SIMULATOR_API_URL") + "/api/get_env_status"
-            )
+            return call_api(os.environ.get("SIMULATOR_API_URL") + "/api/get_env_status")
         except:
             return "No Results Found"
 
     async def _arun(self, query: str) -> str:
         """Use the tool asynchronously."""
         raise NotImplementedError("BingSearchResults does not support async")
+
+    def increase_temperature(self, query: str) -> str:
+        """Use the tool asynchronously."""
+        return "temperature increased successfully"
+
+    def decrease_temperature(self, query: str) -> str:
+        """Use the tool asynchronously."""
+        return "temperature decreased successfully"
+
+    def get_status(self, query: str) -> str:
+        """Use the tool asynchronously."""
+        house_status = call_api(
+            os.environ.get("SIMULATOR_API_URL") + "/api/get_env_status"
+        )
+        return house_status
 
 
 class Action(BaseModel):
@@ -975,7 +978,7 @@ def call_api(url, action: Optional[str] = None):
         # call api from python code to execute the action
         headers = {"Content-Type": "application/json"}
         params = {
-            "code": "Uk-7XrFnJDIBMbHBRP9UJmOky4CEAoHNpQJ_WuT1ZthZAzFuYU9zSw==",
+            "code": os.environ.get("SIMULATOR_API_KEY"),
             "clientId": "default",
         }
         if action is None:

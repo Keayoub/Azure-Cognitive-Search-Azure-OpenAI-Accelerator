@@ -3,7 +3,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 # From here down is all the StreamLit UI.
-st.set_page_config(page_title="GPT Smart Agent", page_icon="📖", layout="wide")
+st.set_page_config(page_title="HQ Smart Home Agent", page_icon="📖", layout="wide")
 # Add custom CSS styles to adjust padding
 st.markdown("""
         <style>
@@ -23,28 +23,19 @@ It has access to the following tools/pluggins:
 
 - Bing Search (***use @bing in your question***)
 - ChatGPT for common knowledge (***use @chatgpt in your question***)
-- Azure SQL for covid statistics data (***use @covidstats in your question***)
-- Azure Search for documents knowledge - Arxiv papers and Covid Articles (***use @docsearch in your question***)
-- Azure Search for books knowledge - 5 PDF books (***use @booksearch in your question***)
+- House Control Assistance  (***use @housecontreol in your question***)
 
 Note: If you don't use any of the tool names beginning with @, the bot will try to use it's own knowledge or tool available to answer the question.
 
 Example questions:
 
-- Hello, my name is Bob, what's yours?
+- Hello, my name is HQ Smart Agent, what's yours?
 - @bing, What's the main economic news of today?
 - @chatgpt, How do I cook a chocolate cake?
-- @booksearch, what normally rich dad do that is different from poor dad?
-- @docsearch, What medicine reduces inflammation in the lungs?
-- @docsearch, Why Covid doesn't affect kids that much compared to adults?
+- @housecontrol what is the state of my house?
 - What are markov chains?
-- @covidstats, How many people where hospitalized in Arkansas in June 2020?
-- @docsearch, List the authors that talk about Boosting Algorithms
-- @booksearch, Tell me a summary of the book Boundaries
 - @chatgpt, how do I fix this error: aiohttp.web_exceptions.HTTPNotFound: Not Found
-- @bing, what movies are showing tonight in Seattle?
-- @docsearch, What are the main risk factors for Covid-19?
-- Please tell me a joke
+- @bing, what is Hydro Quebec vision for 2035?
     """)
     
 st.markdown("""
@@ -92,7 +83,7 @@ f"""
     </style>
   </head>
   <body>
-    <h1><img src='https://logos-world.net/wp-content/uploads/2021/02/Microsoft-Azure-Emblem.png' height="40">Bot Service + Azure OpenAI</h1> 
+    <h1><img src='https://logos-world.net/wp-content/uploads/2021/02/Microsoft-Azure-Emblem.png' height="40">HQ HOME ASSISTANT</h1> 
     <div id="webchat" role="main"></div>
     <script>
       // Set  the CSS rules.
