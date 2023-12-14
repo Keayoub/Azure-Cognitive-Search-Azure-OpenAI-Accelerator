@@ -139,7 +139,7 @@ class MyBot(ActivityHandler):
             llm=llm, callback_manager=cb_manager, return_direct=True
         )
 
-        tools = [simulator_search, www_search]
+        tools = [simulator_search, www_search, chatgpt_search]
 
         # Set brain Agent with persisten memory in CosmosDB
         cosmos = CosmosDBChatMessageHistory(
