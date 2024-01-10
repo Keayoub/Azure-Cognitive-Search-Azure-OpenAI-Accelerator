@@ -44,24 +44,23 @@ The repo is made to teach you step-by-step on how to build a OpenAI-based Smart 
 ## Flow
 1. The user asks a question.
 2. In the app, an OpenAI GPT-4 LLM uses a clever prompt to determine which source to use based on the user input
-3. Four types of sources are available:
+3. Five types of sources are available:
    * 3a. Azure SQL Database - contains COVID-related statistics in the US.
-   * 3b. Azure Bing Search API - provides access to the internet allowing scenerios like: QnA on public websites .
-   * 3c. Azure Cognitive Search - contains AI-enriched documents from Blob Storage (10k PDFs and 90k articles).
-      * 3c.1. Uses OpenAI to vectorize the top K document chunks
-      * 3c.2. Fills up the vector-based indexes on-demand.
-      * 3c.3. Gets the Top N Chunks by doing a vector search on vector-based indexes.
-   * 3d. CSV Tabular File - contains COVID-related statistics in the US.
+   * 3b. API Endpoints - RESTful OpenAPI 3.0 API containing up-to-date statistics about Covid.
+   * 3c. Azure Bing Search API - provides access to the internet allowing scenerios like: QnA on public websites .
+   * 3d. Azure AI Text Search - contains AI-enriched documents from Blob Storage (10k PDFs and 90k articles).
+   * 3e. Azure AI Vector Search - contains 5 lenghty PDF books vectorized per page.
+   * 3f. CSV Tabular File - contains COVID-related statistics in the US.
 4. The app retrieves the result from the source and crafts the answer.
-5. The tuple (Question and Answer) is saved to CosmosDB to keep a record of the interaction and further analysis.
+5. The tuple (Question and Answer) is saved to CosmosDB as persistent memory and for further analysis.
 6. The answer is delivered to the user.
 
 ---
 ## Demo
+> :warning: **Warning:** Due to the high popularity of this repository, the site is temporarily down. We are currently seeking additional funding for the Azure Subscription to accommodate the increased traffic.
 
 https://gptsmartsearch.azurewebsites.net/
 
-To open the Bot in MS Teams, click [HERE](https://teams.microsoft.com/l/chat/0/0?users=28:5d583679-8196-4673-9d77-c294c010bca5)
 
 ---
 
@@ -78,6 +77,7 @@ To open the Bot in MS Teams, click [HERE](https://teams.microsoft.com/l/chat/0/0
    - Tabular Data Q&A with CSV files and SQL flavor Databases
    - Uses [Azure AI Document Intelligence SDK (former Form Recognizer)](https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/overview?view=doc-intel-3.0.0) to parse complex/large PDF documents
    - Uses [Bing Search API](https://www.microsoft.com/en-us/bing/apis) to power internet searches and Q&A over public websites.
+   - Connects to API Data sources by converting natural language questions to API calls.
    - Uses CosmosDB as persistent memory to save user's conversations.
    - Uses [Streamlit](https://streamlit.io/) to build the Frontend web application in python.
    
